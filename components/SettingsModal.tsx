@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Volume2, VolumeX, Eye, EyeOff, Wind, Monitor, Grid } from 'lucide-react';
+import { X, Volume2, VolumeX, Eye, EyeOff, Wind, Monitor, Grid, Activity } from 'lucide-react';
 import { AppSettings } from '../types';
 
 interface SettingsModalProps {
@@ -33,7 +33,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
 
                 {/* Body */}
                 <div className="p-5 space-y-6 overflow-y-auto custom-scrollbar max-h-[70vh]">
-                    
+
                     {/* 1. Sound */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -87,8 +87,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                         </label>
                     </div>
 
-                     {/* 3.5 Show Coords (Extra) */}
-                     <div className="flex items-center justify-between">
+                    {/* 3.1 Engine Arrows */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${settings.showEngineArrows ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                                <Activity size={20} />
+                            </div>
+                            <div>
+                                <div className="font-bold text-zinc-200">顯示引擎建議</div>
+                                <div className="text-xs text-zinc-500">顯示引擎最佳著法 (紅/綠箭頭)</div>
+                            </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked={settings.showEngineArrows} onChange={() => toggle('showEngineArrows')} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                        </label>
+                    </div>
+
+                    {/* 3.5 Show Coords (Extra) */}
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg ${settings.showCoords ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-800 text-zinc-500'}`}>
                                 <Grid size={20} />
@@ -109,7 +126,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                     {/* 4. Animation Speed */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
                                     <Monitor size={20} />
                                 </div>
@@ -120,10 +137,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                             </div>
                         </div>
                         <div className="px-1">
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="1000" 
+                            <input
+                                type="range"
+                                min="0"
+                                max="1000"
                                 step="100"
                                 value={settings.animationSpeed}
                                 onChange={(e) => handleChange('animationSpeed', parseInt(e.target.value))}
@@ -142,10 +159,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                         <div className="grid grid-cols-3 gap-2">
                             {(['small', 'medium', 'large'] as const).map(size => {
                                 let label = '';
-                                if(size === 'small') label = '小 (緊湊)';
-                                if(size === 'medium') label = '中 (標準)';
-                                if(size === 'large') label = '大 (舒適)';
-                                
+                                if (size === 'small') label = '小 (緊湊)';
+                                if (size === 'medium') label = '中 (標準)';
+                                if (size === 'large') label = '大 (舒適)';
+
                                 return (
                                     <button
                                         key={size}

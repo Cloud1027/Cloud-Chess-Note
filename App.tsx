@@ -20,7 +20,8 @@ import { X, List, Cloud, CheckCircle, AlertCircle, HelpCircle, Lightbulb, StopCi
 import { useMoveTree } from './hooks/useMoveTree';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { Point, AnalysisResult, GameMetadata, AppSettings, GameTab, MoveNode } from './types';
-import { getChineseNotation, fenToBoard } from './lib/utils';
+import { getChineseNotation, fenToBoard, ucciToCoords } from './lib/utils';
+import { EngineStats } from './lib/engine';
 import { INITIAL_BOARD_SETUP } from './constants';
 
 type TabView = 'none' | 'moves' | 'cloud' | 'tabs';
@@ -31,7 +32,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     showVariationArrows: true,
     showCoords: true,
     animationSpeed: 300,
-    boardSize: 'large'
+    boardSize: 'large',
+    showEngineArrows: true
 };
 
 const DEFAULT_METADATA: GameMetadata = {
@@ -217,6 +219,24 @@ const App: React.FC = () => {
     const [showInfoModal, setShowInfoModal] = useState(false);
 
     const [isCloudEnabled, setIsCloudEnabled] = useState(false);
+    const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
+
+    // Compute Engine Arrows
+    const engineBestMoves = React.useMemo(() => {
+        if (!settings.showEngineArrows || !engineStats?.pv || engineStats.pv.length === 0) return [];
+        const moves: { from: Point, to: Point, color: 'red' | 'black' }[] = [];
+
+        // PV[0]: Best move for current player
+        const m1 = ucciToCoords(engineStats.pv[0]);
+        if (m1) moves.push({ ...m1, color: currentNode.turn });
+
+        // PV[1]: Best response for opponent
+        if (engineStats.pv.length > 1) {
+            const m2 = ucciToCoords(engineStats.pv[1]);
+            if (m2) moves.push({ ...m2, color: currentNode.turn === 'red' ? 'black' : 'red' });
+        }
+        return moves;
+    }, [engineStats, currentNode.turn, settings.showEngineArrows]);
 
     // Keyboard Shortcuts Integration
     useKeyboardShortcuts({
@@ -317,6 +337,7 @@ const App: React.FC = () => {
                             currentFen={currentNode.fen} currentBoard={currentNode.boardState}
                             onMoveClick={handleCloudMove} onOpenAnalysis={() => setShowAnalysis(true)}
                             isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
+                            onEngineStatsUpdate={setEngineStats}
                         />
                     </>
                 }
@@ -357,6 +378,7 @@ const App: React.FC = () => {
                         currentNode={currentNode}
                         onNodeSelect={node => { setShouldAnimate(false); jumpToMove(node); }}
                         settings={settings} shouldAnimate={shouldAnimate}
+                        engineBestMoves={engineBestMoves}
                     />
                 }
                 controls={

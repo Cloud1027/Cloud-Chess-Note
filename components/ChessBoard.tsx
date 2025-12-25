@@ -24,6 +24,7 @@ interface ChessBoardProps {
     // New props for Arrows
     currentNode?: MoveNode;
     onNodeSelect?: (node: MoveNode) => void;
+    engineBestMoves?: { from: Point; to: Point; color: 'red' | 'black' }[];
 
     // Settings
     settings?: AppSettings;
@@ -141,7 +142,8 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     currentNode,
     onNodeSelect,
     settings,
-    shouldAnimate = true
+    shouldAnimate = true,
+    engineBestMoves
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -671,6 +673,52 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             ctx.restore();
         }
 
+        // 9.5 Engine Best Move Arrows
+        if (engineBestMoves && engineBestMoves.length > 0) {
+            engineBestMoves.forEach(arrow => {
+                const start = getVisualPos(arrow.from.r, arrow.from.c);
+                const end = getVisualPos(arrow.to.r, arrow.to.c);
+                const startX = offsetX + start.c * gridSize;
+                const startY = offsetY + start.r * gridSize;
+                const endX = offsetX + end.c * gridSize;
+                const endY = offsetY + end.r * gridSize;
+
+                // Color based on side
+                const color = arrow.color === 'red' ? '#d946ef' : '#22c55e'; // Fuschia-500 (Magenta-ish) vs Green-500
+
+                ctx.save();
+                ctx.beginPath();
+                // Arrow Logic
+                const angle = Math.atan2(endY - startY, endX - startX);
+                const len = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                const shorten = gridSize * 0.35; // Don't cover piece completely
+                const drawLen = Math.max(0, len - shorten);
+
+                // End point adjusted
+                const adjEndX = startX + Math.cos(angle) * drawLen;
+                const adjEndY = startY + Math.sin(angle) * drawLen;
+
+                // Draw Line
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(adjEndX, adjEndY);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw Arrowhead
+                const headLen = gridSize * 0.25;
+                ctx.beginPath();
+                ctx.moveTo(adjEndX, adjEndY);
+                ctx.lineTo(adjEndX - headLen * Math.cos(angle - Math.PI / 6), adjEndY - headLen * Math.sin(angle - Math.PI / 6));
+                ctx.lineTo(adjEndX - headLen * Math.cos(angle + Math.PI / 6), adjEndY - headLen * Math.sin(angle + Math.PI / 6));
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                ctx.restore();
+            });
+        }
+
         // 10. Player Names
         if (settings?.showPlayerNames !== false) {
             const drawVerticalText = (text: string, x: number, startY: number, size: number) => {
@@ -722,28 +770,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         return () => {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
         };
-    }, [localState, dimensions, isFlipped, isMirrored, redName, blackName, mode, selectedCoord, settings, hintMove, markedSquares]);
-
-    const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        e.preventDefault();
-        const rect = canvasRef.current!.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const { gridSize, offsetX, offsetY } = dimensions;
-        const vc = Math.round((x - offsetX) / gridSize);
-        const vr = Math.round((y - offsetY) / gridSize);
-        if (vr < 0 || vr > 9 || vc < 0 || vc > 8) return;
-        const { r, c } = getLogicalPos(vr, vc);
-
-        const key = `${r},${c}`;
-        setMarkedSquares(prev => {
-            const next = new Set(prev);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
-    };
-
+    }, [localState, dimensions, isFlipped, isMirrored, redName, blackName, mode, selectedCoord, settings, hintMove, markedSquares, engineBestMoves]);
     const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (e.button !== 0) return;
         const rect = canvasRef.current!.getBoundingClientRect();
@@ -754,6 +781,21 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         const vr = Math.round((y - offsetY) / gridSize);
         if (vr < 0 || vr > 9 || vc < 0 || vc > 8) return;
         const { r, c } = getLogicalPos(vr, vc);
+
+        // Triple Click Logic (Trigger Orange Marker)
+        // Note: e.detail counts consecutive clicks
+        if (e.detail === 3) {
+            const key = `${r},${c}`;
+            setMarkedSquares(prev => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+            });
+            // Return early to prevent selection/move logic on the 3rd click if desired,
+            // but allows selection on 1st/2nd click.
+            return;
+        }
 
         if (mode === 'edit') {
             if (onSquareClick) onSquareClick({ r, c }, rect);
@@ -999,7 +1041,6 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                 height={dimensions.height * dimensions.dpr}
                 style={{ width: dimensions.width, height: dimensions.height }}
                 onClick={handleCanvasClick}
-                onDoubleClick={handleCanvasDoubleClick}
                 className="cursor-pointer touch-none z-10"
             />
 

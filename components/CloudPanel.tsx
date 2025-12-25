@@ -12,6 +12,7 @@ interface CloudPanelProps {
     onOpenAnalysis: () => void;
     isEnabled: boolean; // Controls Cloud State
     onToggleEnabled: (enabled: boolean) => void;
+    onEngineStatsUpdate?: (stats: EngineStats | null) => void;
 }
 
 const CloudPanel: React.FC<CloudPanelProps> = ({
@@ -20,7 +21,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     onMoveClick,
     onOpenAnalysis,
     isEnabled,
-    onToggleEnabled
+    onToggleEnabled,
+    onEngineStatsUpdate
 }) => {
     const [mode, setMode] = useState<'cloud' | 'local'>('cloud');
     const [loading, setLoading] = useState(false);
@@ -50,6 +52,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         if (mode === 'local' && isLocalAnalyzing && engineRef.current && engineReady) {
             engineRef.current.startAnalysis(currentFen, (stats) => {
                 setEngineStats(stats);
+                onEngineStatsUpdate?.(stats);
             });
         }
         // Cleanup when unmounting or stopping or changing FEN
