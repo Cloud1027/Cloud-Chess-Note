@@ -106,79 +106,87 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         const newResults: AnalysisResult[] = [];
         const totalSteps = movePath.length - 1;
 
-        for (let i = 0; i < totalSteps; i++) {
-            if (stopLocalRef.current) break;
+        // Cache for evaluations (Red perspective)
+        const evals: number[] = [];
+        const bestMoves: string[] = [];
 
-            const currentNode = movePath[i];
-            const nextNode = movePath[i + 1];
+        try {
+            // 1. Evaluate Initial Position
+            setCurrentStepInfo(`正在評估初始局面 (深度 ${localDepth})...`);
+            const initStats = await engine.analyzeFixedDepth(movePath[0].fen, localDepth);
+            evals[0] = (movePath[0].turn === 'red') ? initStats.score : -initStats.score;
+            bestMoves[0] = initStats.bestMove || '';
 
-            setCurrentStepInfo(`正在計算第 ${i + 1} 回合 (深度 ${localDepth})...`);
+            for (let i = 0; i < totalSteps; i++) {
+                if (stopLocalRef.current) break;
 
-            // Engine Call
-            const stats = await engine.analyzeFixedDepth(currentNode.fen, localDepth);
+                const currentNode = movePath[i];
+                const nextNode = movePath[i + 1];
 
-            // Construct pseudo-CloudMove objects from EngineStats
-            const bestMoveUcci = stats.bestMove || '';
-            const bestMoveScore = stats.score;
+                setCurrentStepInfo(`正在分析第 ${i + 1} 手 (深度 ${localDepth})...`);
+                const stats = await engine.analyzeFixedDepth(nextNode.fen, localDepth);
 
-            // The result now has correct PV in stats.pv
-            // We can improve calculateResult to better handle AI scores
+                const isRedTurnAfter = nextNode.turn === 'red';
+                const redPerspectiveScore = isRedTurnAfter ? stats.score : -stats.score;
+                evals[i + 1] = redPerspectiveScore;
+                bestMoves[i + 1] = stats.bestMove || '';
 
-            // We need to know the score of the move *actually played*.
-            // Since engine only gives best move, we might not know the score of the played move 
-            // unless we specifically ask engine to eval that move (multipv). 
-            // For simplicity in this v1, we compare:
-            // If played == best, score is bestScore.
-            // If played != best, we assume deviation based on simplistic assumption or we'd need MultiPV.
-            // *Improvement*: To get accurate deviation, we should Ideally run "go searchmoves ..." for the played move too.
-            // For this implementation, let's treat deviation as difference from previous static eval or just mark as unknown if not best.
-            // A better approach for "Full Analysis" is usually:
-            // 1. Get Score of Best Move.
-            // 2. See if Played Move is in MultiPV list.
-            // Since we are single PV here, if played != best, we might miss the score. 
-            // Let's assume strict penalty for now or 0 if we can't judge.
+                const prevRedScore = evals[i];
+                const currentRedScore = evals[i + 1];
+                const isRedSide = currentNode.turn === 'red';
 
-            let actualMoveUcci = '';
-            if (nextNode.move) {
-                const f = nextNode.move.from;
-                const t = nextNode.move.to;
-                const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
-                const ucciFrom = `${files[f.c]}${9 - f.r}`;
-                const ucciTo = `${files[t.c]}${9 - t.r}`;
-                actualMoveUcci = ucciFrom + ucciTo;
+                // Calculate real deviation using Differential Analysis
+                let deviation = isRedSide ? (prevRedScore - currentRedScore) : (currentRedScore - prevRedScore);
+
+                const ucciMove = nextNode.move ? (() => {
+                    const f = nextNode.move.from;
+                    const t = nextNode.move.to;
+                    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+                    return `${files[f.c]}${9 - f.r}${files[t.c]}${9 - t.r}`;
+                })() : "";
+
+                let bestMoveNotation = "";
+                const bestMoveUcci = bestMoves[i];
+                const bestCoords = ucciToCoords(bestMoveUcci);
+                if (bestCoords) {
+                    const piece = currentNode.boardState[bestCoords.from.r][bestCoords.from.c];
+                    const target = currentNode.boardState[bestCoords.to.r][bestCoords.to.c];
+                    if (piece) {
+                        bestMoveNotation = getChineseNotation(currentNode.boardState, { from: bestCoords.from, to: bestCoords.to, piece, captured: target });
+                    }
+                }
+
+                // If played move is same as best move, ignore search noise deviation
+                if (ucciMove === bestMoveUcci.trim().toLowerCase()) {
+                    deviation = 0;
+                }
+
+                deviation = Math.max(0, deviation);
+
+                let quality: AnalysisResult['quality'] = 'good';
+                if (deviation > 500) quality = 'blunder';
+                else if (deviation > 200) quality = 'mistake';
+                else if (deviation > 50) quality = 'inaccuracy';
+
+                const resultItem: AnalysisResult = {
+                    nodeId: nextNode.id,
+                    moveIndex: i + 1,
+                    moveNotation: nextNode.move?.notation || "未知",
+                    fen: currentNode.fen,
+                    score: currentRedScore,
+                    deviation,
+                    isRedTurn: isRedSide,
+                    bestMove: bestMoveNotation || bestMoveUcci,
+                    bestScore: prevRedScore,
+                    quality
+                };
+
+                newResults.push(resultItem);
+                setResults([...newResults]);
+                setProgress(((i + 1) / totalSteps) * 100);
             }
-
-            const isBest = actualMoveUcci === bestMoveUcci;
-
-            // Mock object for consistent logic
-            const bestCloudMove = { move: bestMoveUcci, score: bestMoveScore, rank: 1, winrate: 0, note: 'AI' };
-            const playedCloudMove = isBest ? bestCloudMove : null;
-            // Note: If not best, we treat it as missing data -> deviation calculated as generic penalty in `calculateResult`
-            // Or we could run a quick eval on the actual move? 
-            // Let's stick to simple comparison: if not best, big penalty?
-            // Actually, `calculateResult` handles `!playedCloudMove` by assigning a deviation of 250.
-
-            const resultItem = calculateResult(currentNode, nextNode, playedCloudMove, bestCloudMove, i + 1, actualMoveUcci);
-
-            // Fix score direction for AI: Engine returns relative score (positive = side to move is winning)
-            // My calculateResult expects absolute score (Red perspective)?
-            // Cloud moves are usually Red Perspective.
-            // Stockfish returns score relative to side to move.
-            // We need to convert Engine Relative Score -> Red Perspective Score.
-            const isRedTurn = currentNode.turn === 'red';
-            const redPerspectiveScore = isRedTurn ? bestMoveScore : -bestMoveScore;
-
-            // Patch the result with correct score
-            resultItem.score = redPerspectiveScore; // This is the "Best Score" roughly
-            // If played move was NOT best, we penalized it.
-            if (!isBest) {
-                // If we don't know the real score, we estimate.
-                // Or we update resultItem to reflect we only know best move.
-            }
-
-            newResults.push(resultItem);
-            setResults([...newResults]);
-            setProgress(((i + 1) / totalSteps) * 100);
+        } catch (err) {
+            console.error("Local Analysis Error:", err);
         }
 
         engine.stopAnalysis();

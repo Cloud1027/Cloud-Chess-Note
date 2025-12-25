@@ -211,9 +211,10 @@ export class LocalEngine {
                 }
                 if (line.startsWith('bestmove')) {
                     this.messageListeners.delete(listener);
-                    const bestMove = line.split(' ')[1];
+                    const parts = line.split(/\s+/);
+                    const bestMove = parts[1]?.trim();
                     const result = lastStats || {
-                        depth: 0, score: 0, mate: null, nodes: 0, nps: 0, time: 0, pv: [bestMove], bestMove: bestMove
+                        depth: 0, score: 0, mate: null, nodes: 0, nps: 0, time: 0, pv: bestMove ? [bestMove] : [], bestMove: bestMove
                     };
                     resolve(result);
                 }
