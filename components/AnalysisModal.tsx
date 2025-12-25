@@ -9,15 +9,15 @@ interface AnalysisModalProps {
     onClose: () => void;
     movePath: MoveNode[]; // The full active path
     onJumpToStep: (index: number) => void;
-    onBatchUpdateComments: (updates: {id: string, text: string}[]) => void;
+    onBatchUpdateComments: (updates: { id: string, text: string }[]) => void;
     results: AnalysisResult[];
     setResults: (results: AnalysisResult[]) => void;
 }
 
-const AnalysisModal: React.FC<AnalysisModalProps> = ({ 
-    onClose, 
-    movePath, 
-    onJumpToStep, 
+const AnalysisModal: React.FC<AnalysisModalProps> = ({
+    onClose,
+    movePath,
+    onJumpToStep,
     onBatchUpdateComments,
     results,
     setResults
@@ -25,11 +25,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisMode, setAnalysisMode] = useState<'cloud' | 'local'>('cloud');
     const [localDepth, setLocalDepth] = useState(15);
-    
+
     const [progress, setProgress] = useState(0);
     const [currentStepInfo, setCurrentStepInfo] = useState('');
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-    const [selectedIndex, setSelectedIndex] = useState<number | null>(null); 
+    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const stopLocalRef = useRef(false);
 
@@ -49,25 +49,25 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         abortControllerRef.current = new AbortController();
 
         const newResults: AnalysisResult[] = [];
-        const totalSteps = movePath.length - 1; 
+        const totalSteps = movePath.length - 1;
 
         for (let i = 0; i < totalSteps; i++) {
             if (abortControllerRef.current.signal.aborted) break;
 
             const currentNode = movePath[i];
-            const nextNode = movePath[i+1];
-            
-            setCurrentStepInfo(`正在查詢第 ${i+1} 回合...`);
+            const nextNode = movePath[i + 1];
+
+            setCurrentStepInfo(`正在查詢第 ${i + 1} 回合...`);
             const cloudMoves = await fetchCloudBookData(currentNode.fen);
-            
+
             let actualMoveUcci = '';
             if (nextNode.move) {
-                 const f = nextNode.move.from;
-                 const t = nextNode.move.to;
-                 const files = ['a','b','c','d','e','f','g','h','i'];
-                 const ucciFrom = `${files[f.c]}${9 - f.r}`;
-                 const ucciTo = `${files[t.c]}${9 - t.r}`;
-                 actualMoveUcci = ucciFrom + ucciTo;
+                const f = nextNode.move.from;
+                const t = nextNode.move.to;
+                const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+                const ucciFrom = `${files[f.c]}${9 - f.r}`;
+                const ucciTo = `${files[t.c]}${9 - t.r}`;
+                actualMoveUcci = ucciFrom + ucciTo;
             }
 
             const playedCloudMove = cloudMoves.find(m => m.move === actualMoveUcci);
@@ -75,7 +75,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
             // ... Score Logic Reuse ...
             const resultItem = calculateResult(currentNode, nextNode, playedCloudMove, bestCloudMove, i + 1, actualMoveUcci);
-            
+
             newResults.push(resultItem);
             setResults([...newResults]);
             setProgress(((i + 1) / totalSteps) * 100);
@@ -104,23 +104,26 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         stopLocalRef.current = false;
 
         const newResults: AnalysisResult[] = [];
-        const totalSteps = movePath.length - 1; 
+        const totalSteps = movePath.length - 1;
 
         for (let i = 0; i < totalSteps; i++) {
             if (stopLocalRef.current) break;
 
             const currentNode = movePath[i];
-            const nextNode = movePath[i+1];
-            
-            setCurrentStepInfo(`正在計算第 ${i+1} 回合 (深度 ${localDepth})...`);
-            
+            const nextNode = movePath[i + 1];
+
+            setCurrentStepInfo(`正在計算第 ${i + 1} 回合 (深度 ${localDepth})...`);
+
             // Engine Call
             const stats = await engine.analyzeFixedDepth(currentNode.fen, localDepth);
-            
+
             // Construct pseudo-CloudMove objects from EngineStats
             const bestMoveUcci = stats.bestMove || '';
             const bestMoveScore = stats.score;
-            
+
+            // The result now has correct PV in stats.pv
+            // We can improve calculateResult to better handle AI scores
+
             // We need to know the score of the move *actually played*.
             // Since engine only gives best move, we might not know the score of the played move 
             // unless we specifically ask engine to eval that move (multipv). 
@@ -134,29 +137,29 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             // 2. See if Played Move is in MultiPV list.
             // Since we are single PV here, if played != best, we might miss the score. 
             // Let's assume strict penalty for now or 0 if we can't judge.
-            
+
             let actualMoveUcci = '';
             if (nextNode.move) {
-                 const f = nextNode.move.from;
-                 const t = nextNode.move.to;
-                 const files = ['a','b','c','d','e','f','g','h','i'];
-                 const ucciFrom = `${files[f.c]}${9 - f.r}`;
-                 const ucciTo = `${files[t.c]}${9 - t.r}`;
-                 actualMoveUcci = ucciFrom + ucciTo;
+                const f = nextNode.move.from;
+                const t = nextNode.move.to;
+                const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+                const ucciFrom = `${files[f.c]}${9 - f.r}`;
+                const ucciTo = `${files[t.c]}${9 - t.r}`;
+                actualMoveUcci = ucciFrom + ucciTo;
             }
 
             const isBest = actualMoveUcci === bestMoveUcci;
-            
+
             // Mock object for consistent logic
             const bestCloudMove = { move: bestMoveUcci, score: bestMoveScore, rank: 1, winrate: 0, note: 'AI' };
-            const playedCloudMove = isBest ? bestCloudMove : null; 
+            const playedCloudMove = isBest ? bestCloudMove : null;
             // Note: If not best, we treat it as missing data -> deviation calculated as generic penalty in `calculateResult`
             // Or we could run a quick eval on the actual move? 
             // Let's stick to simple comparison: if not best, big penalty?
             // Actually, `calculateResult` handles `!playedCloudMove` by assigning a deviation of 250.
 
             const resultItem = calculateResult(currentNode, nextNode, playedCloudMove, bestCloudMove, i + 1, actualMoveUcci);
-            
+
             // Fix score direction for AI: Engine returns relative score (positive = side to move is winning)
             // My calculateResult expects absolute score (Red perspective)?
             // Cloud moves are usually Red Perspective.
@@ -164,7 +167,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             // We need to convert Engine Relative Score -> Red Perspective Score.
             const isRedTurn = currentNode.turn === 'red';
             const redPerspectiveScore = isRedTurn ? bestMoveScore : -bestMoveScore;
-            
+
             // Patch the result with correct score
             resultItem.score = redPerspectiveScore; // This is the "Best Score" roughly
             // If played move was NOT best, we penalized it.
@@ -185,15 +188,15 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
     // Helper to unify logic
     const calculateResult = (
-        currentNode: MoveNode, 
-        nextNode: MoveNode, 
-        playedMove: { score: number } | null | undefined, 
+        currentNode: MoveNode,
+        nextNode: MoveNode,
+        playedMove: { score: number } | null | undefined,
         bestMove: { move: string, score: number } | null | undefined,
         moveIndex: number,
         actualMoveUcci: string
     ): AnalysisResult => {
         let deviation = 0;
-        let finalScore = null; 
+        let finalScore = null;
         let bestMoveNotation = "";
         const isRedTurn = currentNode.turn === 'red';
 
@@ -233,9 +236,9 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
         // Quality
         let quality: AnalysisResult['quality'] = 'good';
-        if (deviation > 500) quality = 'blunder'; 
-        else if (deviation > 200) quality = 'mistake'; 
-        else if (deviation > 50) quality = 'inaccuracy'; 
+        if (deviation > 500) quality = 'blunder';
+        else if (deviation > 200) quality = 'mistake';
+        else if (deviation > 50) quality = 'inaccuracy';
 
         return {
             nodeId: nextNode.id,
@@ -266,7 +269,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
     const writeAnnotations = () => {
         if (results.length === 0) return;
-        const updates: {id: string, text: string}[] = [];
+        const updates: { id: string, text: string }[] = [];
         results.forEach(res => {
             if (res.quality !== 'good') {
                 const node = movePath.find(n => n.id === res.nodeId);
@@ -293,18 +296,18 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     const chartHeight = 220;
     const chartWidth = 600;
     const padding = 20;
-    
+
     const getCoordinates = () => {
         if (results.length === 0) return "";
         const maxY = 600; const minY = -600;
         const validPoints = results.map((res, idx) => ({ ...res, idx })).filter(r => r.score !== null && !isNaN(r.score));
         if (validPoints.length === 0) return "";
         const points = validPoints.map((res) => {
-             const x = padding + (res.idx / (results.length - 1 || 1)) * (chartWidth - padding * 2);
-             let val = res.score!;
-             val = Math.max(minY, Math.min(maxY, val));
-             const y = chartHeight - ((val - minY) / (maxY - minY)) * chartHeight;
-             return `${x},${y}`;
+            const x = padding + (res.idx / (results.length - 1 || 1)) * (chartWidth - padding * 2);
+            let val = res.score!;
+            val = Math.max(minY, Math.min(maxY, val));
+            const y = chartHeight - ((val - minY) / (maxY - minY)) * chartHeight;
+            return `${x},${y}`;
         });
         return points.join(" ");
     };
@@ -324,10 +327,10 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     const blackStats = getStats(false);
 
     const getQualityColor = (q: string) => {
-        switch(q) {
-            case 'blunder': return '#dc2626'; 
-            case 'mistake': return '#f97316'; 
-            case 'inaccuracy': return '#eab308'; 
+        switch (q) {
+            case 'blunder': return '#dc2626';
+            case 'mistake': return '#f97316';
+            case 'inaccuracy': return '#eab308';
             default: return '#3b82f6';
         }
     };
@@ -348,11 +351,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-                    
+
                     {/* Controls Split */}
                     {!isAnalyzing && results.length === 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-950/50 p-6 rounded-xl border border-zinc-800">
-                            
+
                             {/* Cloud Option */}
                             <div className="flex flex-col gap-4 p-4 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-blue-500/50 transition-colors">
                                 <div className="flex items-center gap-3">
@@ -364,7 +367,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                                         <p className="text-xs text-zinc-500">使用 ChessDB 雲端大數據，速度極快。</p>
                                     </div>
                                 </div>
-                                <button 
+                                <button
                                     onClick={startCloudAnalysis}
                                     className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
                                 >
@@ -388,9 +391,9 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                                         <span>搜索深度</span>
                                         <span className="text-amber-400 font-bold">{localDepth} 層</span>
                                     </div>
-                                    <input 
-                                        type="range" min="10" max="25" step="1" 
-                                        value={localDepth} 
+                                    <input
+                                        type="range" min="10" max="25" step="1"
+                                        value={localDepth}
                                         onChange={(e) => setLocalDepth(parseInt(e.target.value))}
                                         className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
                                     />
@@ -399,7 +402,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                                         <span>25 (慢)</span>
                                     </div>
                                 </div>
-                                <button 
+                                <button
                                     onClick={startLocalAnalysis}
                                     className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                                 >
@@ -422,7 +425,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                             <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                                 <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }}></div>
                             </div>
-                            <button 
+                            <button
                                 onClick={stopAnalysis}
                                 className="w-full py-2 bg-zinc-800 hover:bg-red-900/30 text-zinc-400 hover:text-red-400 border border-zinc-700 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                             >
@@ -436,7 +439,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                         <>
                             <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 relative h-64 select-none group">
                                 <svg width="100%" height="100%" viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="overflow-visible">
-                                    <line x1={padding} y1={chartHeight/2} x2={chartWidth-padding} y2={chartHeight/2} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
+                                    <line x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
                                     <polyline points={getCoordinates()} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                     {results.map((res, idx) => {
                                         if (res.score === null || isNaN(res.score)) return null;
@@ -473,13 +476,13 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                             </div>
 
                             <div className="flex gap-3">
-                                <button 
+                                <button
                                     onClick={() => { setResults([]); }} // Reset to show selection menu
                                     className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg font-bold transition-colors border border-zinc-700"
                                 >
                                     重新選擇分析模式
                                 </button>
-                                <button 
+                                <button
                                     onClick={writeAnnotations}
                                     className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-lg"
                                 >
@@ -529,8 +532,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
 const BadMoveItem: React.FC<{ res: AnalysisResult; idx: number; selectedIndex: number | null; onJump: (index: number, moveIndex: number) => void; }> = ({ res, idx, selectedIndex, onJump }) => {
     let borderColor = '', bgColor = '', textColor = '';
-    if (res.quality === 'blunder') { borderColor = 'border-red-900/50'; bgColor = 'bg-red-950/30 hover:bg-red-900/20'; textColor = 'text-red-400'; } 
-    else if (res.quality === 'mistake') { borderColor = 'border-orange-900/50'; bgColor = 'bg-orange-950/30 hover:bg-orange-900/20'; textColor = 'text-orange-400'; } 
+    if (res.quality === 'blunder') { borderColor = 'border-red-900/50'; bgColor = 'bg-red-950/30 hover:bg-red-900/20'; textColor = 'text-red-400'; }
+    else if (res.quality === 'mistake') { borderColor = 'border-orange-900/50'; bgColor = 'bg-orange-950/30 hover:bg-orange-900/20'; textColor = 'text-orange-400'; }
     else { borderColor = 'border-yellow-900/50'; bgColor = 'bg-yellow-950/30 hover:bg-yellow-900/20'; textColor = 'text-yellow-400'; }
     const isSelected = selectedIndex === idx;
     return (

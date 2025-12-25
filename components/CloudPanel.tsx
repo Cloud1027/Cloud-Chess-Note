@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2 } from 'lucide-react';
 import { Point, Piece, CloudMove } from '../types';
-import { getChineseNotation, ucciToCoords, fetchCloudBookData } from '../lib/utils';
+import { getChineseNotation, ucciToCoords, fetchCloudBookData, getChineseNotationForPV } from '../lib/utils';
 import { LocalEngine, EngineStats } from '../lib/engine';
 
 interface CloudPanelProps {
@@ -14,10 +14,10 @@ interface CloudPanelProps {
     onToggleEnabled: (enabled: boolean) => void;
 }
 
-const CloudPanel: React.FC<CloudPanelProps> = ({ 
-    currentFen, 
-    currentBoard, 
-    onMoveClick, 
+const CloudPanel: React.FC<CloudPanelProps> = ({
+    currentFen,
+    currentBoard,
+    onMoveClick,
     onOpenAnalysis,
     isEnabled,
     onToggleEnabled
@@ -25,7 +25,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     const [mode, setMode] = useState<'cloud' | 'local'>('cloud');
     const [loading, setLoading] = useState(false);
     const [moves, setMoves] = useState<CloudMove[]>([]);
-    
+
     // Local Engine State
     const [engineReady, setEngineReady] = useState(false);
     const [isLocalAnalyzing, setIsLocalAnalyzing] = useState(false);
@@ -66,7 +66,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         if (isLocalAnalyzing) {
             engineRef.current?.stopAnalysis();
             setIsLocalAnalyzing(false);
-            setEngineStats(null);
+            // setEngineStats(null); // Keep stats on stop
         } else {
             setIsLocalAnalyzing(true);
         }
@@ -79,7 +79,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
             const { from, to } = coords;
             if (from.r < 0 || from.r > 9 || from.c < 0 || from.c > 8) return ucci;
             const piece = currentBoard[from.r][from.c];
-            if (!piece) return ucci; 
+            if (!piece) return ucci;
             const captured = currentBoard[to.r][to.c];
             return getChineseNotation(currentBoard, { from, to, piece, captured });
         } catch (e) { return ucci; }
@@ -98,8 +98,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         }
     };
 
-    useEffect(() => { 
-        if (isEnabled && mode === 'cloud') loadData(currentFen); 
+    useEffect(() => {
+        if (isEnabled && mode === 'cloud') loadData(currentFen);
     }, [currentFen, isEnabled, mode]);
 
     const getScoreColor = (score: number) => {
@@ -110,16 +110,16 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
 
     return (
         <div className="flex flex-col h-full bg-zinc-900 border-zinc-800 w-full overflow-hidden">
-             {/* Header & Tabs */}
-             <div className="bg-zinc-900 border-b border-zinc-800 shrink-0">
+            {/* Header & Tabs */}
+            <div className="bg-zinc-900 border-b border-zinc-800 shrink-0">
                 <div className="flex px-2 pt-2 gap-1">
-                    <button 
+                    <button
                         onClick={() => setMode('cloud')}
                         className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'cloud' ? 'bg-zinc-800 text-blue-400 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
                     >
                         <Cloud size={14} /> 雲庫
                     </button>
-                    <button 
+                    <button
                         onClick={() => setMode('local')}
                         className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'local' ? 'bg-zinc-800 text-amber-400 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
                     >
@@ -134,7 +134,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                     <>
                         <div className="p-3 border-b border-zinc-800 shrink-0 flex gap-2">
                             {!isEnabled ? (
-                                <button 
+                                <button
                                     onClick={() => onToggleEnabled(true)}
                                     className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded flex items-center justify-center gap-2 font-bold text-sm shadow-lg transition-all"
                                 >
@@ -142,14 +142,14 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                                 </button>
                             ) : (
                                 <>
-                                    <button 
+                                    <button
                                         onClick={() => loadData(currentFen)}
                                         disabled={loading}
                                         className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded flex items-center justify-center gap-2 text-sm border border-zinc-700 transition-colors"
                                     >
                                         <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> 刷新
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => onToggleEnabled(false)}
                                         className="px-3 py-2 bg-zinc-800 hover:bg-red-900/40 text-zinc-400 hover:text-red-400 rounded border border-zinc-700 transition-colors"
                                     >
@@ -157,7 +157,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                                     </button>
                                 </>
                             )}
-                            <button 
+                            <button
                                 onClick={onOpenAnalysis}
                                 className="px-3 py-2 bg-zinc-800 hover:bg-indigo-900/40 text-zinc-300 hover:text-indigo-300 rounded border border-zinc-700 transition-colors"
                                 title="全盤分析"
@@ -169,7 +169,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                         {!isEnabled ? (
                             <div className="h-full flex flex-col items-center justify-center p-8 text-center gap-4 opacity-50">
                                 <Cloud size={48} className="text-zinc-700" />
-                                <p className="text-zinc-500 text-sm leading-relaxed">連接雲庫 API<br/>獲取即時大數據</p>
+                                <p className="text-zinc-500 text-sm leading-relaxed">連接雲庫 API<br />獲取即時大數據</p>
                             </div>
                         ) : loading ? (
                             <div className="flex flex-col items-center justify-center h-40 gap-3 text-zinc-500">
@@ -189,8 +189,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                                 </thead>
                                 <tbody className="divide-y divide-zinc-800/30">
                                     {moves.map((m, idx) => (
-                                        <tr 
-                                            key={idx} 
+                                        <tr
+                                            key={idx}
                                             onClick={() => onMoveClick(ucciToCoords(m.move)!)}
                                             className="hover:bg-blue-900/10 cursor-pointer transition-colors"
                                         >
@@ -207,14 +207,14 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                     // Local Engine UI
                     <div className="flex flex-col h-full">
                         <div className="p-3 border-b border-zinc-800 shrink-0 flex gap-2">
-                            <button 
+                            <button
                                 onClick={toggleLocalAnalysis}
                                 disabled={!engineReady}
                                 className={`flex-1 py-2 rounded flex items-center justify-center gap-2 font-bold text-sm shadow-lg transition-all ${isLocalAnalyzing ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 disabled:cursor-wait'}`}
                             >
                                 {isLocalAnalyzing ? <><Square size={14} fill="currentColor" /> 停止計算</> : <><Play size={16} fill="currentColor" /> 開始計算</>}
                             </button>
-                            <button 
+                            <button
                                 onClick={onOpenAnalysis}
                                 className="px-3 py-2 bg-zinc-800 hover:bg-indigo-900/40 text-zinc-300 hover:text-indigo-300 rounded border border-zinc-700 transition-colors"
                                 title="全盤分析 (AI)"
@@ -264,13 +264,13 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                                             <Settings2 size={12} /> 主要變例 (PV)
                                         </div>
                                         <div className="bg-zinc-900 border border-zinc-800 rounded p-2 text-sm text-zinc-300 font-mono leading-relaxed break-words">
-                                            {engineStats.pv.map((move, i) => (
+                                            {getChineseNotationForPV(currentFen, engineStats.pv).map((move, i) => (
                                                 <span key={i} className={i === 0 ? "text-amber-400 font-bold mr-1.5" : "mr-1.5 text-zinc-400"}>
-                                                    {getMoveDisplayName(move)}
+                                                    {move}
                                                 </span>
                                             ))}
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => engineStats.bestMove && onMoveClick(ucciToCoords(engineStats.bestMove)!)}
                                             className="w-full mt-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded border border-zinc-700 transition-colors"
                                         >

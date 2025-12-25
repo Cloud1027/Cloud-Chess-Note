@@ -7,7 +7,7 @@ import { PIECES } from '../constants';
  */
 export const getFen = (board: (Piece | null)[][], turn: PieceColor): string => {
     let fen = '';
-    
+
     // 1. Board Layout
     for (let r = 0; r < 10; r++) {
         let emptyCount = 0;
@@ -35,7 +35,7 @@ export const getFen = (board: (Piece | null)[][], turn: PieceColor): string => {
     fen += ` ${turn === 'red' ? 'w' : 'b'}`;
 
     // 3. Placeholders
-    fen += ' - - 0 1'; 
+    fen += ' - - 0 1';
 
     return fen;
 };
@@ -121,18 +121,18 @@ export const validatePiecePlacement = (pieceType: string, color: PieceColor, r: 
     return true;
 };
 
-export const toChineseNum = (n: number) => ['零','一','二','三','四','五','六','七','八','九'][n];
+export const toChineseNum = (n: number) => ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'][n];
 
-export const getChineseNotation = (board: (Piece|null)[][], move: {from: Point, to: Point, piece: Piece, captured: Piece|null}): string => {
+export const getChineseNotation = (board: (Piece | null)[][], move: { from: Point, to: Point, piece: Piece, captured: Piece | null }): string => {
     const { from, to, piece } = move;
     const isRed = piece.color === 'red';
     const fromCol = isRed ? (9 - from.c) : (from.c + 1);
     const toCol = isRed ? (9 - to.c) : (to.c + 1);
     let name = piece.text;
     let dir = '';
-    let dest = ''; 
+    let dest = '';
     const dr = to.r - from.r;
-    
+
     if (from.r === to.r) {
         dir = '平';
         dest = isRed ? toChineseNum(toCol) : toCol.toString();
@@ -166,9 +166,9 @@ export const fetchCloudBookData = async (fen: string): Promise<CloudMove[]> => {
         const url = `https://www.chessdb.cn/chessdb.php?action=queryall&board=${encodeURIComponent(fen)}&learn=1&showall=1`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Network response was not ok');
-        
+
         const text = await response.text();
-        
+
         if (text.startsWith('unknown') || text.startsWith('invalid')) {
             return [];
         }
@@ -180,7 +180,7 @@ export const fetchCloudBookData = async (fen: string): Promise<CloudMove[]> => {
                 const [k, v] = p.split(':');
                 if (k && v) obj[k.trim()] = v.trim();
             });
-            
+
             return {
                 move: obj.move,
                 score: parseInt(obj.score || '0'),
@@ -189,10 +189,48 @@ export const fetchCloudBookData = async (fen: string): Promise<CloudMove[]> => {
                 note: obj.note || ''
             };
         }).filter(m => m.move);
-        
+
         return parsedMoves;
     } catch (err) {
         console.error("Cloud fetch error:", err);
         return [];
     }
+};
+
+export const applyMoveToBoard = (board: (Piece | null)[][], move: { from: Point, to: Point }): (Piece | null)[][] => {
+    const newBoard = board.map(row => [...row]);
+    const piece = newBoard[move.from.r][move.from.c];
+    if (piece) {
+        newBoard[move.to.r][move.to.c] = piece;
+        newBoard[move.from.r][move.from.c] = null;
+    }
+    return newBoard;
+};
+
+export const getChineseNotationForPV = (fen: string, pv: string[]): string[] => {
+    let { board } = fenToBoard(fen);
+    const notations: string[] = [];
+
+    for (const ucci of pv) {
+        const coords = ucciToCoords(ucci);
+        if (!coords) {
+            notations.push(ucci);
+            continue;
+        }
+
+        const piece = board[coords.from.r][coords.from.c];
+        if (!piece) {
+            notations.push(ucci);
+            continue;
+        }
+
+        const captured = board[coords.to.r][coords.to.c];
+        const notation = getChineseNotation(board, { ...coords, piece, captured });
+        notations.push(notation);
+
+        // Apply move to board for next iteration
+        board = applyMoveToBoard(board, coords);
+    }
+
+    return notations;
 };

@@ -38,6 +38,7 @@ export class LocalEngine {
     private isAnalyzing: boolean = false;
     private onInfoCallback: EngineCallback | null = null;
     private engineBasePath: string;
+    private messageListeners: Set<(line: string) => void> = new Set();
 
     private constructor() {
         this.engineBasePath = getEngineBasePath();
@@ -94,6 +95,7 @@ export class LocalEngine {
                             onReceiveStdout: (line: string) => {
                                 console.log('Engine:', line);
                                 this.parseEngineOutput(line);
+                                this.messageListeners.forEach(l => l(line));
                             },
                             onReceiveStderr: (line: string) => {
                                 console.warn('Engine Err:', line);
@@ -203,24 +205,21 @@ export class LocalEngine {
         return new Promise((resolve) => {
             let lastStats: EngineStats | null = null;
 
-            // Temporary listener for this specific task
             const listener = (line: string) => {
                 if (line.startsWith('info') && line.includes('depth') && line.includes('score')) {
-                    const stats = this.parseInfo(line);
-                    // Check if lowerbound/upperbound to avoid noise, but for simplicity keep latest
-                    lastStats = stats;
+                    lastStats = this.parseInfo(line);
                 }
                 if (line.startsWith('bestmove')) {
-                    this.stockfish.removeMessageListener(listener);
-                    // Return the last collected stats, or a minimal object if fast move
+                    this.messageListeners.delete(listener);
+                    const bestMove = line.split(' ')[1];
                     const result = lastStats || {
-                        depth: 0, score: 0, mate: null, nodes: 0, nps: 0, time: 0, pv: [line.split(' ')[1]], bestMove: line.split(' ')[1]
+                        depth: 0, score: 0, mate: null, nodes: 0, nps: 0, time: 0, pv: [bestMove], bestMove: bestMove
                     };
                     resolve(result);
                 }
             };
 
-            this.stockfish.addMessageListener(listener);
+            this.messageListeners.add(listener);
             this.sendCommand(`position fen ${fen}`);
             this.sendCommand(`go depth ${depth}`);
         });
