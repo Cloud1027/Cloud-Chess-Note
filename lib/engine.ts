@@ -15,6 +15,22 @@ export interface EngineStats {
 
 type EngineCallback = (stats: EngineStats) => void;
 
+// Helper function to get the correct base path for engine files
+function getEngineBasePath(): string {
+    // For GitHub Pages deployment, we need to account for the repository name in the path
+    // Also handle the case where files are in public/ directory during source-based serving
+    const pathname = window.location.pathname;
+
+    // Check if we're on GitHub Pages (path contains /Cloud-Chess-Note/)
+    if (pathname.includes('/Cloud-Chess-Note/')) {
+        // GitHub Pages serves source files directly, so engine is in public/engine/
+        return '/Cloud-Chess-Note/public/engine/';
+    }
+
+    // For local development or production build
+    return '/engine/';
+}
+
 export class LocalEngine {
     private static instance: LocalEngine;
     private stockfish: any = null;
@@ -22,8 +38,11 @@ export class LocalEngine {
     private isAnalyzing: boolean = false;
     private onInfoCallback: EngineCallback | null = null;
     private nnueLoaded: boolean = false;
+    private engineBasePath: string;
 
-    private constructor() {}
+    private constructor() {
+        this.engineBasePath = getEngineBasePath();
+    }
 
     public static getInstance(): LocalEngine {
         if (!LocalEngine.instance) {
@@ -36,19 +55,34 @@ export class LocalEngine {
         if (this.isReady) return;
 
         return new Promise((resolve, reject) => {
+            // Set up Emscripten Module configuration BEFORE loading the script
+            // This tells Emscripten where to find the .wasm and .worker.js files
+            // @ts-ignore
+            window.Module = window.Module || {};
+            // @ts-ignore
+            window.Module.locateFile = (path: string) => {
+                return this.engineBasePath + path;
+            };
+            // @ts-ignore
+            window.Module.mainScriptUrlOrBlob = this.engineBasePath + 'stockfish.js';
+
             // Dynamically load the script
             const script = document.createElement('script');
-            script.src = '/engine/stockfish.js';
+            script.src = this.engineBasePath + 'stockfish.js';
             script.async = true;
-            
+
             script.onload = async () => {
                 try {
                     // @ts-ignore
                     const SF = window.Stockfish;
                     if (!SF) throw new Error("Stockfish failed to load");
 
-                    this.stockfish = await SF();
-                    
+                    // Pass config options to Stockfish init
+                    this.stockfish = await SF({
+                        locateFile: (path: string) => this.engineBasePath + path,
+                        mainScriptUrlOrBlob: this.engineBasePath + 'stockfish.js'
+                    });
+
                     // Hook into output
                     this.stockfish.addMessageListener((line: string) => {
                         this.parseLine(line);
@@ -73,22 +107,22 @@ export class LocalEngine {
     private async loadNNUE() {
         if (this.nnueLoaded) return;
         try {
-            const response = await fetch('/engine/pikafish.nnue');
+            const response = await fetch(this.engineBasePath + 'pikafish.nnue');
             if (!response.ok) throw new Error("NNUE file not found");
             const arrayBuffer = await response.arrayBuffer();
             const data = new Uint8Array(arrayBuffer);
-            
+
             // Write to virtual filesystem provided by Emscripten
             const fileName = 'pikafish.nnue';
             this.stockfish.FS.writeFile('/' + fileName, data);
-            
+
             this.postMessage(`setoption name EvalFile value /${fileName}`);
             // Enable NNUE usage usually implies turning it on if not default, 
             // but Pikafish usually defaults to it if EvalFile is set.
             // Also enable multi-threading if possible (safely use 1 or 2 for web)
-            this.postMessage('setoption name Threads value 4'); 
+            this.postMessage('setoption name Threads value 4');
             this.postMessage('setoption name Hash value 64');
-            
+
             this.nnueLoaded = true;
             console.log("NNUE Loaded Successfully");
         } catch (e) {
@@ -127,13 +161,13 @@ export class LocalEngine {
             const idx = parts.indexOf(key);
             return idx !== -1 && idx + 1 < parts.length ? parts[idx + 1] : null;
         };
-        
+
         // Parse Score
         let score = 0;
         let mate = null;
         const scoreType = getVal('score'); // cp or mate
         const scoreVal = parseInt(parts[parts.indexOf('score') + 2] || '0');
-        
+
         if (scoreType === 'mate') {
             mate = scoreVal;
             score = scoreVal > 0 ? 9999 : -9999;
@@ -169,10 +203,10 @@ export class LocalEngine {
     public analyzeFixedDepth(fen: string, depth: number): Promise<EngineStats> {
         if (!this.isReady) return Promise.reject("Engine not ready");
         this.stopAnalysis();
-        
+
         return new Promise((resolve) => {
             let lastStats: EngineStats | null = null;
-            
+
             // Temporary listener for this specific task
             const listener = (line: string) => {
                 if (line.startsWith('info') && line.includes('depth') && line.includes('score')) {
