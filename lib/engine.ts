@@ -18,13 +18,13 @@ type EngineCallback = (stats: EngineStats) => void;
 // Helper function to get the correct base path for engine files
 function getEngineBasePath(): string {
     // For GitHub Pages deployment, we need to account for the repository name in the path
-    // Also handle the case where files are in public/ directory during source-based serving
     const pathname = window.location.pathname;
 
     // Check if we're on GitHub Pages (path contains /Cloud-Chess-Note/)
     if (pathname.includes('/Cloud-Chess-Note/')) {
-        // GitHub Pages serves source files directly, so engine is in public/engine/
-        return '/Cloud-Chess-Note/public/engine/';
+        // In Vite production build, public/ folder contents are moved to dist root
+        // So the path is /Cloud-Chess-Note/engine/ not /Cloud-Chess-Note/public/engine/
+        return '/Cloud-Chess-Note/engine/';
     }
 
     // For local development or production build
@@ -37,7 +37,6 @@ export class LocalEngine {
     private isReady: boolean = false;
     private isAnalyzing: boolean = false;
     private onInfoCallback: EngineCallback | null = null;
-    private nnueLoaded: boolean = false;
     private engineBasePath: string;
 
     private constructor() {
@@ -55,102 +54,99 @@ export class LocalEngine {
         if (this.isReady) return;
 
         return new Promise((resolve, reject) => {
-            // Set up Emscripten Module configuration BEFORE loading the script
-            // This tells Emscripten where to find the .wasm and .worker.js files
+            // Pikafish.js uses Module.onReceiveStdout for output
+            // and Module.sendCommand for input (set up after loading)
             // @ts-ignore
-            window.Module = window.Module || {};
-            // @ts-ignore
-            window.Module.locateFile = (path: string) => {
-                return this.engineBasePath + path;
+            window.Module = {
+                locateFile: (path: string, prefix: string) => {
+                    console.log('locateFile called:', path, 'prefix:', prefix);
+                    // Always use our engine base path regardless of prefix
+                    return this.engineBasePath + path;
+                },
+                onReceiveStdout: (line: string) => {
+                    console.log('Engine:', line);
+                    this.parseEngineOutput(line);
+                },
+                onReceiveStderr: (line: string) => {
+                    console.warn('Engine Err:', line);
+                },
+                onExit: (code: number) => {
+                    console.log('Engine exited with code', code);
+                }
             };
-            // @ts-ignore
-            window.Module.mainScriptUrlOrBlob = this.engineBasePath + 'stockfish.js';
 
-            // Dynamically load the script
             const script = document.createElement('script');
-            script.src = this.engineBasePath + 'stockfish.js';
+            script.src = this.engineBasePath + 'pikafish.js';
             script.async = true;
 
             script.onload = async () => {
                 try {
+                    // Wait for Pikafish to be ready (it's a factory function)
                     // @ts-ignore
-                    const SF = window.Stockfish;
-                    if (!SF) throw new Error("Stockfish failed to load");
+                    if (typeof Pikafish === 'function') {
+                        // Pass config to factory function - this is where locateFile must be set
+                        // @ts-ignore
+                        this.stockfish = await Pikafish({
+                            locateFile: (path: string) => {
+                                console.log('Pikafish locateFile:', path);
+                                return this.engineBasePath + path;
+                            },
+                            onReceiveStdout: (line: string) => {
+                                console.log('Engine:', line);
+                                this.parseEngineOutput(line);
+                            },
+                            onReceiveStderr: (line: string) => {
+                                console.warn('Engine Err:', line);
+                            }
+                        });
+                        console.log('Pikafish module loaded');
 
-                    // Pass config options to Stockfish init
-                    this.stockfish = await SF({
-                        locateFile: (path: string) => this.engineBasePath + path,
-                        mainScriptUrlOrBlob: this.engineBasePath + 'stockfish.js'
-                    });
-
-                    // Hook into output
-                    this.stockfish.addMessageListener((line: string) => {
-                        this.parseLine(line);
-                    });
-
-                    // Load NNUE
-                    await this.loadNNUE();
-
-                    this.postMessage('uci');
-                    this.isReady = true;
-                    resolve();
+                        // Send UCI command to initialize
+                        this.sendCommand('uci');
+                        this.isReady = true;
+                        resolve();
+                    } else {
+                        reject(new Error('Pikafish function not found'));
+                    }
                 } catch (e) {
                     console.error("Engine Init Failed", e);
                     reject(e);
                 }
             };
-            script.onerror = (e) => reject(e);
+            script.onerror = (e) => reject(new Error('Failed to load engine script: ' + e));
             document.body.appendChild(script);
         });
     }
 
-    private async loadNNUE() {
-        if (this.nnueLoaded) return;
-        try {
-            const response = await fetch(this.engineBasePath + 'pikafish.nnue');
-            if (!response.ok) throw new Error("NNUE file not found");
-            const arrayBuffer = await response.arrayBuffer();
-            const data = new Uint8Array(arrayBuffer);
-
-            // Write to virtual filesystem provided by Emscripten
-            const fileName = 'pikafish.nnue';
-            this.stockfish.FS.writeFile('/' + fileName, data);
-
-            this.postMessage(`setoption name EvalFile value /${fileName}`);
-            // Enable NNUE usage usually implies turning it on if not default, 
-            // but Pikafish usually defaults to it if EvalFile is set.
-            // Also enable multi-threading if possible (safely use 1 or 2 for web)
-            this.postMessage('setoption name Threads value 4');
-            this.postMessage('setoption name Hash value 64');
-
-            this.nnueLoaded = true;
-            console.log("NNUE Loaded Successfully");
-        } catch (e) {
-            console.warn("Failed to load NNUE, engine might be weak", e);
-        }
-    }
-
-    private postMessage(cmd: string) {
+    private sendCommand(cmd: string) {
         if (this.stockfish) {
-            this.stockfish.postMessage(cmd);
+            if (this.stockfish.sendCommand) {
+                this.stockfish.sendCommand(cmd);
+            } else if (this.stockfish.postMessage) {
+                this.stockfish.postMessage(cmd);
+            } else {
+                console.warn("Engine postMessage/sendCommand not available");
+            }
         }
     }
 
-    private parseLine(line: string) {
+    private parseEngineOutput(line: string) {
         // Example: info depth 10 seldepth 15 score cp 25 nodes 1000 nps 500000 pv h2e2 h9g7
+        if (line === 'uciok') {
+            console.log('UCI ok');
+            // Default settings for Pikafish
+            this.sendCommand('setoption name Threads value 4');
+            this.sendCommand('setoption name Hash value 64');
+            // Explicitly point to the NNUE file loaded by the JS wrapper
+            this.sendCommand('setoption name EvalFile value pikafish.nnue');
+        }
+
         if (line.startsWith('info') && line.includes('depth') && line.includes('score')) {
             const stats = this.parseInfo(line);
             if (this.onInfoCallback) this.onInfoCallback(stats);
         }
         if (line.startsWith('bestmove')) {
             // Analysis finished for fixed depth/time
-            // Format: bestmove h2e2 ponder h9g7
-            const parts = line.split(' ');
-            const best = parts[1];
-            if (this.onInfoCallback) {
-                // We don't get stats in bestmove line, but we signal completion implicitly?
-                // For now, we rely on the last info line for stats.
-            }
         }
     }
 
@@ -196,8 +192,8 @@ export class LocalEngine {
         this.stopAnalysis(); // Stop previous
         this.onInfoCallback = callback;
         this.isAnalyzing = true;
-        this.postMessage(`position fen ${fen}`);
-        this.postMessage('go infinite');
+        this.sendCommand(`position fen ${fen}`);
+        this.sendCommand('go infinite');
     }
 
     public analyzeFixedDepth(fen: string, depth: number): Promise<EngineStats> {
@@ -218,21 +214,21 @@ export class LocalEngine {
                     this.stockfish.removeMessageListener(listener);
                     // Return the last collected stats, or a minimal object if fast move
                     const result = lastStats || {
-                        depth: 0, score: 0, mate: null, nodes: 0, nps: 0, time: 0, pv: [line.split(' ')[1]]
+                        depth: 0, score: 0, mate: null, nodes: 0, nps: 0, time: 0, pv: [line.split(' ')[1]], bestMove: line.split(' ')[1]
                     };
                     resolve(result);
                 }
             };
 
             this.stockfish.addMessageListener(listener);
-            this.postMessage(`position fen ${fen}`);
-            this.postMessage(`go depth ${depth}`);
+            this.sendCommand(`position fen ${fen}`);
+            this.sendCommand(`go depth ${depth}`);
         });
     }
 
     public stopAnalysis() {
         if (this.isAnalyzing) {
-            this.postMessage('stop');
+            this.sendCommand('stop');
             this.isAnalyzing = false;
             this.onInfoCallback = null;
         }

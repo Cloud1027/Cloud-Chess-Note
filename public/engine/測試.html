@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pikafish Test</title>
+</head>
+<body>
+    <h1>Pikafish 測試</h1>
+    <script src="pikafish.js"></script>
+    <script>
+        // 初始化 Pikafish 模組
+        Pikafish().then(function(instance) {
+            console.log("Pikafish 已載入！");
+
+            // 定義當引擎回傳訊息時的處理函式
+            // 引擎會透過這裡告訴你它在想什麼，或者它的這一步棋是什麼
+            instance.addMessageListener(function(msg) {
+                console.log("引擎回應:", msg);
+            });
+
+            // 1. 告訴引擎使用 UCI 模式
+            instance.postMessage("uci");
+
+            // 2. 設定盤面 (這裡是初始盤面)
+            // 你可以使用 FEN 字串來設定特定殘局
+            setTimeout(() => {
+                instance.postMessage("position startpos");
+            }, 100);
+
+            // 3. 叫引擎開始思考 (go)，思考深度設為 10 層
+            setTimeout(() => {
+                console.log("開始思考...");
+                instance.postMessage("go depth 10");
+            }, 200);
+        });
+    </script>
+</body>
+</html>
