@@ -5,35 +5,35 @@ import { INITIAL_BOARD_SETUP } from '../constants';
 import { toChineseNum, getChineseNotation } from '../lib/utils';
 
 interface ChessBoardProps {
-  currentBoard?: (Piece | null)[][];
-  currentTurn?: PieceColor;
-  lastMove?: { from: Point; to: Point } | null;
-  onMoveMade?: (move: { from: Point; to: Point; piece: Piece; captured: Piece | null; notation: string }, newBoard: (Piece|null)[][]) => boolean;
-  isFlipped: boolean;
-  isMirrored: boolean;
-  redName?: string;
-  blackName?: string;
-  // Editor Props
-  mode?: 'play' | 'edit';
-  selectedCoord?: Point | null; // Override internal selection
-  onSquareClick?: (point: Point, rect: DOMRect) => void;
-  // Visual Effects
-  flashCoord?: Point | null; // Coordinate to flash "X"
-  hintMove?: { from: Point; to: Point } | null; // Hint Effect
-  
-  // New props for Arrows
-  currentNode?: MoveNode;
-  onNodeSelect?: (node: MoveNode) => void;
+    currentBoard?: (Piece | null)[][];
+    currentTurn?: PieceColor;
+    lastMove?: { from: Point; to: Point } | null;
+    onMoveMade?: (move: { from: Point; to: Point; piece: Piece; captured: Piece | null; notation: string }, newBoard: (Piece | null)[][]) => boolean;
+    isFlipped: boolean;
+    isMirrored: boolean;
+    redName?: string;
+    blackName?: string;
+    // Editor Props
+    mode?: 'play' | 'edit';
+    selectedCoord?: Point | null; // Override internal selection
+    onSquareClick?: (point: Point, rect: DOMRect) => void;
+    // Visual Effects
+    flashCoord?: Point | null; // Coordinate to flash "X"
+    hintMove?: { from: Point; to: Point } | null; // Hint Effect
 
-  // Settings
-  settings?: AppSettings;
-  shouldAnimate?: boolean;
+    // New props for Arrows
+    currentNode?: MoveNode;
+    onNodeSelect?: (node: MoveNode) => void;
+
+    // Settings
+    settings?: AppSettings;
+    shouldAnimate?: boolean;
 }
 
 // --- Logic helpers ---
-const canMove = (board: (Piece|null)[][], fr: number, fc: number, tr: number, tc: number): boolean => {
+const canMove = (board: (Piece | null)[][], fr: number, fc: number, tr: number, tc: number): boolean => {
     const p = board[fr][fc];
-    if(!p) return false;
+    if (!p) return false;
     const target = board[tr][tc];
     if (target && target.color === p.color) return false;
     const dr = tr - fr; const dc = tc - fc;
@@ -42,20 +42,20 @@ const canMove = (board: (Piece|null)[][], fr: number, fc: number, tr: number, tc
     switch (p.type) {
         case 'king':
             if (target && target.type === 'king' && fc === tc) {
-                 let count = 0;
-                 for (let i = Math.min(fr, tr) + 1; i < Math.max(fr, tr); i++) if (board[i][fc]) count++;
-                 return count === 0;
+                let count = 0;
+                for (let i = Math.min(fr, tr) + 1; i < Math.max(fr, tr); i++) if (board[i][fc]) count++;
+                return count === 0;
             }
             return (absDr + absDc === 1) && tc >= 3 && tc <= 5 && (p.color === 'red' ? tr >= 7 : tr <= 2);
         case 'advisor': return absDr === 1 && absDc === 1 && tc >= 3 && tc <= 5 && (p.color === 'red' ? tr >= 7 : tr <= 2);
-        case 'elephant': return absDr === 2 && absDc === 2 && !board[fr + dr/2][fc + dc/2] && (p.color === 'red' ? tr >= 5 : tr <= 4);
-        case 'horse': return ((absDr === 2 && absDc === 1 && !board[fr + dr/2][fc]) || (absDr === 1 && absDc === 2 && !board[fr][fc + dc/2]));
-        case 'chariot': 
-            if (fr !== tr && fc !== tc) return false; 
+        case 'elephant': return absDr === 2 && absDc === 2 && !board[fr + dr / 2][fc + dc / 2] && (p.color === 'red' ? tr >= 5 : tr <= 4);
+        case 'horse': return ((absDr === 2 && absDc === 1 && !board[fr + dr / 2][fc]) || (absDr === 1 && absDc === 2 && !board[fr][fc + dc / 2]));
+        case 'chariot':
+            if (fr !== tr && fc !== tc) return false;
             return countPiecesBetween(board, fr, fc, tr, tc) === 0;
-        case 'cannon': 
-            if (fr !== tr && fc !== tc) return false; 
-            let count = countPiecesBetween(board, fr, fc, tr, tc); 
+        case 'cannon':
+            if (fr !== tr && fc !== tc) return false;
+            let count = countPiecesBetween(board, fr, fc, tr, tc);
             return target ? count === 1 : count === 0;
         case 'soldier':
             if (p.color === 'red') {
@@ -69,7 +69,7 @@ const canMove = (board: (Piece|null)[][], fr: number, fc: number, tr: number, tc
     return false;
 };
 
-const countPiecesBetween = (board: (Piece|null)[][], fr: number, fc: number, tr: number, tc: number) => {
+const countPiecesBetween = (board: (Piece | null)[][], fr: number, fc: number, tr: number, tc: number) => {
     let count = 0;
     if (fr === tr) { for (let j = Math.min(fc, tc) + 1; j < Math.max(fc, tc); j++) if (board[fr][j]) count++; }
     else { for (let i = Math.min(fr, tr) + 1; i < Math.max(fr, tr); i++) if (board[i][fc]) count++; }
@@ -80,24 +80,24 @@ const countPiecesBetween = (board: (Piece|null)[][], fr: number, fc: number, tr:
 const isKingInCheck = (board: (Piece | null)[][], kingColor: PieceColor): boolean => {
     // 1. Find King
     let kingPos: Point | null = null;
-    for(let r=0; r<10; r++) {
-        for(let c=0; c<9; c++) {
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
             const p = board[r][c];
-            if(p && p.type === 'king' && p.color === kingColor) {
+            if (p && p.type === 'king' && p.color === kingColor) {
                 kingPos = { r, c };
                 break;
             }
         }
-        if(kingPos) break;
+        if (kingPos) break;
     }
-    if(!kingPos) return false;
+    if (!kingPos) return false;
 
     // 2. Check if any enemy piece can move to King's position
-    for(let r=0; r<10; r++) {
-        for(let c=0; c<9; c++) {
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
             const p = board[r][c];
-            if(p && p.color !== kingColor) {
-                if(canMove(board, r, c, kingPos.r, kingPos.c)) {
+            if (p && p.color !== kingColor) {
+                if (canMove(board, r, c, kingPos.r, kingPos.c)) {
                     return true;
                 }
             }
@@ -124,12 +124,12 @@ interface ShakeState {
     c: number;
 }
 
-const ChessBoard: React.FC<ChessBoardProps> = ({ 
-    onMoveMade, 
-    currentBoard, 
-    currentTurn, 
-    lastMove, 
-    isFlipped, 
+const ChessBoard: React.FC<ChessBoardProps> = ({
+    onMoveMade,
+    currentBoard,
+    currentTurn,
+    lastMove,
+    isFlipped,
     isMirrored,
     redName,
     blackName,
@@ -147,7 +147,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     // Fix: useRef requires an initial value to satisfy certain TypeScript configurations.
     const requestRef = useRef<number | undefined>(undefined);
-    
+
     // Unique ID for SVG defs to prevent conflicts when multiple boards exist
     const uniqueId = useMemo(() => Math.random().toString(36).substring(2, 9), []);
     const maskId = `arrowFadeMask-${uniqueId}`;
@@ -155,7 +155,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     const gradientId = `fadeGradient-${uniqueId}`;
     const markerBlueId = `arrowhead-blue-${uniqueId}`;
     const markerGreenId = `arrowhead-green-${uniqueId}`;
-    
+
     // Internal State
     const [localState, setLocalState] = useState<GameState>({
         board: INITIAL_BOARD_SETUP(),
@@ -175,11 +175,11 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     const prevLastMoveRef = useRef<{ from: Point; to: Point } | null>(null);
 
     // Flash State for Wrong Moves
-    const [activeFlashes, setActiveFlashes] = useState<{r: number, c: number, id: number}[]>([]);
-    
+    const [activeFlashes, setActiveFlashes] = useState<{ r: number, c: number, id: number }[]>([]);
+
     // Manual Arrow State
-    const [manualArrows, setManualArrows] = useState<{from: Point, to: Point}[]>([]);
-    const [dragArrow, setDragArrow] = useState<{start: Point, current: {x: number, y: number}} | null>(null);
+    const [manualArrows, setManualArrows] = useState<{ from: Point, to: Point }[]>([]);
+    const [dragArrow, setDragArrow] = useState<{ start: Point, current: { x: number, y: number } } | null>(null);
 
     // Hover State for Variation Arrows (to bring to front)
     const [hoveredVariationId, setHoveredVariationId] = useState<string | null>(null);
@@ -204,8 +204,8 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     useEffect(() => {
         if (currentBoard) {
             // 1. Detect Move Animation
-            const hasLastMoveChanged = lastMove && (!prevLastMoveRef.current || 
-                lastMove.from.r !== prevLastMoveRef.current.from.r || 
+            const hasLastMoveChanged = lastMove && (!prevLastMoveRef.current ||
+                lastMove.from.r !== prevLastMoveRef.current.from.r ||
                 lastMove.from.c !== prevLastMoveRef.current.from.c ||
                 lastMove.to.r !== prevLastMoveRef.current.to.r ||
                 lastMove.to.c !== prevLastMoveRef.current.to.c
@@ -228,7 +228,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                         animationRef.current = {
                             active: true,
                             startTime: Date.now(),
-                            duration: animDuration, 
+                            duration: animDuration,
                             from: lastMove.from,
                             to: lastMove.to,
                             piece: movingPiece,
@@ -243,15 +243,15 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             }
 
             // 2. Detect Check (Shake)
-            const playerUnderAttack = currentTurn || 'black'; 
+            const playerUnderAttack = currentTurn || 'black';
             if (isKingInCheck(currentBoard, playerUnderAttack)) {
-                for(let r=0; r<10; r++) {
-                    for(let c=0; c<9; c++) {
+                for (let r = 0; r < 10; r++) {
+                    for (let c = 0; c < 9; c++) {
                         const p = currentBoard[r][c];
-                        if(p && p.type === 'king' && p.color === playerUnderAttack) {
+                        if (p && p.type === 'king' && p.color === playerUnderAttack) {
                             shakeRef.current = {
                                 active: true,
-                                startTime: Date.now() + (settings?.animationSpeed ?? 300), 
+                                startTime: Date.now() + (settings?.animationSpeed ?? 300),
                                 duration: 500,
                                 r, c
                             };
@@ -274,18 +274,18 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             prevBoardRef.current = currentBoard;
         }
     }, [currentBoard, currentTurn, lastMove, settings?.animationSpeed, shouldAnimate]);
-    
-    const [dimensions, setDimensions] = useState({ width: 500, height: 600, gridSize: 50, offsetX: 50, offsetY: 50 });
+
+    const [dimensions, setDimensions] = useState({ width: 500, height: 600, gridSize: 50, offsetX: 50, offsetY: 50, dpr: 1 });
 
     useEffect(() => {
         if (!containerRef.current) return;
-        
+
         const updateDimensions = () => {
-             if (containerRef.current) {
+            if (containerRef.current) {
                 const { clientWidth, clientHeight } = containerRef.current;
                 if (clientWidth === 0 || clientHeight === 0) return;
 
-                let horizontalGridsNeeded = 12; 
+                let horizontalGridsNeeded = 12;
                 let verticalGridsNeeded = 13;
                 let maxGridSize = 80;
 
@@ -299,38 +299,40 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     verticalGridsNeeded = 11;
                     maxGridSize = 999;
                 } else if (settings?.boardSize === 'small') {
-                    horizontalGridsNeeded = 14; 
+                    horizontalGridsNeeded = 14;
                     verticalGridsNeeded = 15;
-                    maxGridSize = 35; 
+                    maxGridSize = 35;
                 }
 
                 const maxGridW = clientWidth / horizontalGridsNeeded;
                 const maxGridH = clientHeight / verticalGridsNeeded;
-                
+
                 let gridSize = Math.min(maxGridW, maxGridH);
-                if (gridSize > maxGridSize) gridSize = maxGridSize; 
-                
+                if (gridSize > maxGridSize) gridSize = maxGridSize;
+
                 const boardPixelW = 8 * gridSize;
                 const boardPixelH = 9 * gridSize;
-                
+
                 const offsetX = (clientWidth - boardPixelW) / 2;
                 const freeVerticalSpace = clientHeight - boardPixelH;
-                const offsetY = (freeVerticalSpace / 2); 
+                const offsetY = (freeVerticalSpace / 2);
 
-                setDimensions({ 
-                    width: clientWidth, 
+                const dpr = window.devicePixelRatio || 1;
+                setDimensions({
+                    width: clientWidth,
                     height: clientHeight,
-                    gridSize: gridSize, 
-                    offsetX: offsetX, 
-                    offsetY: offsetY 
+                    gridSize: gridSize,
+                    offsetX: offsetX,
+                    offsetY: offsetY,
+                    dpr: dpr
                 });
-             }
+            }
         };
 
         const resizeObserver = new ResizeObserver(() => {
             requestAnimationFrame(updateDimensions);
         });
-        
+
         resizeObserver.observe(containerRef.current);
         updateDimensions();
 
@@ -380,7 +382,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         const { gridSize, offsetX, offsetY } = dimensions;
         const vc = Math.round((x - offsetX) / gridSize);
         const vr = Math.round((y - offsetY) / gridSize);
-        
+
         if (vr < 0 || vr > 9 || vc < 0 || vc > 8) return null;
         return getLogicalPos(vr, vc);
     };
@@ -396,8 +398,10 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const { width, height, gridSize, offsetX, offsetY } = dimensions;
+        const { width, height, gridSize, offsetX, offsetY, dpr } = dimensions;
         if (width === 0 || height === 0) return;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         const { board, selectedPiece } = localState;
         const activeSelection = (mode === 'edit' && selectedCoord !== undefined) ? selectedCoord : selectedPiece;
@@ -414,7 +418,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             shake = null;
             shakeRef.current = null;
         }
-        
+
         // 1. Board Background
         ctx.clearRect(0, 0, width, height);
         let grad = ctx.createLinearGradient(0, 0, 0, height);
@@ -436,7 +440,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         }
         ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 4; ctx.strokeRect(offsetX - 4, offsetY - 4, 8 * gridSize + 8, 9 * gridSize + 8);
         ctx.lineWidth = 1.5; ctx.strokeStyle = '#3d2b1f';
-        
+
         // Palace
         const drawX = (baseR: number) => {
             const y1 = offsetY + baseR * gridSize;
@@ -446,7 +450,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(x2, y1); ctx.lineTo(x1, y2); ctx.stroke();
         };
-        drawX(0); 
+        drawX(0);
         drawX(7);
 
         // 3. Labels
@@ -491,7 +495,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             if (v.c > 0) { drawCorner(-1, -1); drawCorner(-1, 1); }
             if (v.c < 8) { drawCorner(1, -1); drawCorner(1, 1); }
         };
-        [[2,1], [2,7], [7,1], [7,7], [3,0], [3,2], [3,4], [3,6], [3,8], [6,0], [6,2], [6,4], [6,6], [6,8]].forEach(p => drawMark(p[0], p[1]));
+        [[2, 1], [2, 7], [7, 1], [7, 7], [3, 0], [3, 2], [3, 4], [3, 6], [3, 8], [6, 0], [6, 2], [6, 4], [6, 6], [6, 8]].forEach(p => drawMark(p[0], p[1]));
 
         // 4.5 Extra Marked Squares (Visual Effect - Double Click)
         if (markedSquares.size > 0) {
@@ -500,7 +504,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                 const v = getVisualPos(r, c);
                 const x = offsetX + v.c * gridSize;
                 const y = offsetY + v.r * gridSize;
-                
+
                 // Pulse Animation
                 const pulse = (Math.sin(now / 200) + 1) / 2; // 0 to 1
                 const radius = gridSize * 0.48 + (pulse * 2); // Slight breathe
@@ -508,20 +512,20 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 
                 ctx.save();
                 ctx.translate(x, y);
-                
+
                 // Outer Glow Ring
                 ctx.beginPath();
                 ctx.arc(0, 0, radius, 0, Math.PI * 2);
                 ctx.strokeStyle = `rgba(249, 115, 22, ${alpha})`; // Orange-500
                 ctx.lineWidth = 4;
                 ctx.stroke();
-                
+
                 // Inner Fill
                 ctx.beginPath();
                 ctx.arc(0, 0, radius, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(251, 146, 60, 0.2)`; // Orange-400 low opacity
                 ctx.fill();
-                
+
                 ctx.restore();
             });
         }
@@ -580,12 +584,12 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                 let shakeOffsetX = 0;
                 let shakeOffsetY = 0;
                 if (shake && shake.r === r && shake.c === c) {
-                     const shakeProgress = (now - shake.startTime) / shake.duration;
-                     if (shakeProgress >= 0 && shakeProgress <= 1) {
-                         const intensity = (1 - shakeProgress) * gridSize * 0.15;
-                         shakeOffsetX = (Math.random() - 0.5) * intensity;
-                         shakeOffsetY = (Math.random() - 0.5) * intensity;
-                     }
+                    const shakeProgress = (now - shake.startTime) / shake.duration;
+                    if (shakeProgress >= 0 && shakeProgress <= 1) {
+                        const intensity = (1 - shakeProgress) * gridSize * 0.15;
+                        shakeOffsetX = (Math.random() - 0.5) * intensity;
+                        shakeOffsetY = (Math.random() - 0.5) * intensity;
+                    }
                 }
                 drawPiece(piece, r, c, 1, shakeOffsetX, shakeOffsetY);
             }
@@ -609,14 +613,14 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             }
             drawPieceAt(animMove.piece, currentX, currentY, scale);
         }
-        
+
         // Active Selection
         if (activeSelection) {
             const v = getVisualPos(activeSelection.r, activeSelection.c);
             ctx.save();
-            ctx.beginPath(); 
+            ctx.beginPath();
             ctx.arc(offsetX + v.c * gridSize, offsetY + v.r * gridSize, gridSize * 0.48, 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(34, 197, 94, 0.9)"; 
+            ctx.strokeStyle = "rgba(34, 197, 94, 0.9)";
             ctx.lineWidth = 4;
             ctx.stroke();
             ctx.restore();
@@ -627,18 +631,18 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             for (let r = 0; r < 10; r++) {
                 for (let c = 0; c < 9; c++) {
                     if (canMove(board, activeSelection.r, activeSelection.c, r, c)) {
-                         const v = getVisualPos(r, c);
-                         const targetP = board[r][c];
-                         ctx.beginPath();
-                         if (targetP) {
+                        const v = getVisualPos(r, c);
+                        const targetP = board[r][c];
+                        ctx.beginPath();
+                        if (targetP) {
                             ctx.arc(offsetX + v.c * gridSize, offsetY + v.r * gridSize, gridSize * 0.48, 0, Math.PI * 2);
-                            ctx.strokeStyle = "rgba(168, 85, 247, 0.9)"; 
-                            ctx.lineWidth = 4; 
+                            ctx.strokeStyle = "rgba(168, 85, 247, 0.9)";
+                            ctx.lineWidth = 4;
                             ctx.stroke();
-                         } else {
+                        } else {
                             ctx.arc(offsetX + v.c * gridSize, offsetY + v.r * gridSize, gridSize * 0.12, 0, Math.PI * 2);
                             ctx.fillStyle = "rgba(22, 163, 74, 0.8)"; ctx.fill();
-                         }
+                        }
                     }
                 }
             }
@@ -655,7 +659,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             const vFrom = getVisualPos(from.r, from.c);
             const xF = offsetX + vFrom.c * gridSize;
             const yF = offsetY + vFrom.r * gridSize;
-            
+
             ctx.save();
             ctx.beginPath();
             ctx.arc(xF, yF, gridSize * 0.48, 0, Math.PI * 2);
@@ -670,8 +674,8 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         // 10. Player Names
         if (settings?.showPlayerNames !== false) {
             const drawVerticalText = (text: string, x: number, startY: number, size: number) => {
-                 const lineHeight = size * 1.1;
-                 for (let i = 0; i < text.length; i++) { ctx.fillText(text[i], x, startY + i * lineHeight); }
+                const lineHeight = size * 1.1;
+                for (let i = 0; i < text.length; i++) { ctx.fillText(text[i], x, startY + i * lineHeight); }
             };
             const drawPlayerName = (name: string, isTop: boolean, color: string) => {
                 if (!name) return;
@@ -695,7 +699,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     const bottomMarginHeight = height - bottomMarginStart;
                     let y = 0;
                     if (isTop) {
-                        y = offsetY * 0.2; 
+                        y = offsetY * 0.2;
                     } else {
                         y = height - (bottomMarginHeight * 0.2);
                     }
@@ -730,7 +734,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         const vr = Math.round((y - offsetY) / gridSize);
         if (vr < 0 || vr > 9 || vc < 0 || vc > 8) return;
         const { r, c } = getLogicalPos(vr, vc);
-        
+
         const key = `${r},${c}`;
         setMarkedSquares(prev => {
             const next = new Set(prev);
@@ -752,7 +756,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         const { r, c } = getLogicalPos(vr, vc);
 
         if (mode === 'edit') {
-            if (onSquareClick) onSquareClick({ r, c }, rect); 
+            if (onSquareClick) onSquareClick({ r, c }, rect);
             return;
         }
 
@@ -763,12 +767,12 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     const newBoard = board.map(row => [...row]);
                     const movedPiece = newBoard[selectedPiece.r][selectedPiece.c]!;
                     const targetPiece = newBoard[r][c];
-                    const notation = getChineseNotation(board, { from: selectedPiece, to: {r,c}, piece: movedPiece, captured: targetPiece });
+                    const notation = getChineseNotation(board, { from: selectedPiece, to: { r, c }, piece: movedPiece, captured: targetPiece });
                     newBoard[r][c] = movedPiece;
                     newBoard[selectedPiece.r][selectedPiece.c] = null;
                     const accepted = onMoveMade({
                         from: selectedPiece,
-                        to: {r,c},
+                        to: { r, c },
                         piece: movedPiece,
                         captured: targetPiece,
                         notation: notation
@@ -779,20 +783,20 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                             board: newBoard,
                             turn: turn === 'red' ? 'black' : 'red',
                             selectedPiece: null,
-                            lastMove: { from: selectedPiece, to: {r, c} },
+                            lastMove: { from: selectedPiece, to: { r, c } },
                         }));
                     }
                 }
             } else {
                 if (board[r][c] && board[r][c]?.color === turn) {
-                    setLocalState(prev => ({ ...prev, selectedPiece: {r, c} }));
+                    setLocalState(prev => ({ ...prev, selectedPiece: { r, c } }));
                 } else {
                     setLocalState(prev => ({ ...prev, selectedPiece: null }));
                 }
             }
         } else {
             if (board[r][c] && board[r][c]?.color === turn) {
-                 setLocalState(prev => ({ ...prev, selectedPiece: {r, c} }));
+                setLocalState(prev => ({ ...prev, selectedPiece: { r, c } }));
             }
         }
     };
@@ -805,14 +809,14 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         const start = getLogicalFromPixel(x, y);
-        if (start) setDragArrow({ start, current: {x, y} });
+        if (start) setDragArrow({ start, current: { x, y } });
     };
     const handleContainerMouseMove = (e: React.MouseEvent) => {
         if (dragArrow) {
-             const rect = containerRef.current!.getBoundingClientRect();
-             const x = e.clientX - rect.left;
-             const y = e.clientY - rect.top;
-             setDragArrow(prev => prev ? { ...prev, current: {x, y} } : null);
+            const rect = containerRef.current!.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            setDragArrow(prev => prev ? { ...prev, current: { x, y } } : null);
         }
     };
     const handleContainerMouseUp = (e: React.MouseEvent) => {
@@ -823,7 +827,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             const end = getLogicalFromPixel(x, y);
             if (end && (end.r !== dragArrow.start.r || end.c !== dragArrow.start.c)) {
                 setManualArrows(prev => {
-                    const exists = prev.findIndex(a => 
+                    const exists = prev.findIndex(a =>
                         a.from.r === dragArrow.start.r && a.from.c === dragArrow.start.c &&
                         a.to.r === end.r && a.to.c === end.c
                     );
@@ -844,13 +848,13 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             const fromPos = getPixelPos(child.move.from.r, child.move.from.c);
             const toPos = getPixelPos(child.move.to.r, child.move.to.c);
             const originalIdx = currentNode.children!.findIndex(c => c.id === child.id);
-            const label = String.fromCharCode(65 + originalIdx); 
+            const label = String.fromCharCode(65 + originalIdx);
             const dx = toPos.x - fromPos.x;
             const dy = toPos.y - fromPos.y;
-            const angle = Math.atan2(dy, dx); 
+            const angle = Math.atan2(dy, dx);
             const angleDeg = angle * (180 / Math.PI);
             const dist = Math.sqrt(dx * dx + dy * dy);
-            
+
             // 更細緻的箭頭樣式
             const headLength = 20; // Reduced from 40
             const headWidth = 14;  // Reduced from 28
@@ -859,16 +863,16 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             const overlap = 0.5;
 
             const shaftEnd = Math.max(0, dist - headLength + notchDepth + overlap);
-            const shaftPath = `M 0,${-shaftWidth/2} L ${shaftEnd},${-shaftWidth/2} L ${shaftEnd},${shaftWidth/2} L 0,${shaftWidth/2} Z`;
+            const shaftPath = `M 0,${-shaftWidth / 2} L ${shaftEnd},${-shaftWidth / 2} L ${shaftEnd},${shaftWidth / 2} L 0,${shaftWidth / 2} Z`;
 
             const headBackX = dist - headLength;
             const headTipX = dist;
-            const headStartFillX = headBackX + notchDepth - overlap; 
-            const headPath = `M ${headStartFillX},${-shaftWidth/2} L ${headBackX},${-headWidth/2} L ${headTipX},0 L ${headBackX},${headWidth/2} L ${headStartFillX},${shaftWidth/2} Z`;
-            
-            const outlinePath = `M 0,${-shaftWidth/2} L ${headBackX + notchDepth},${-shaftWidth/2} L ${headBackX},${-headWidth/2} L ${headTipX},0 L ${headBackX},${headWidth/2} L ${headBackX + notchDepth},${shaftWidth/2} L 0,${shaftWidth/2}`;
+            const headStartFillX = headBackX + notchDepth - overlap;
+            const headPath = `M ${headStartFillX},${-shaftWidth / 2} L ${headBackX},${-headWidth / 2} L ${headTipX},0 L ${headBackX},${headWidth / 2} L ${headStartFillX},${shaftWidth / 2} Z`;
 
-            const badgeOffsetFromTip = headLength * 0.8; 
+            const outlinePath = `M 0,${-shaftWidth / 2} L ${headBackX + notchDepth},${-shaftWidth / 2} L ${headBackX},${-headWidth / 2} L ${headTipX},0 L ${headBackX},${headWidth / 2} L ${headBackX + notchDepth},${shaftWidth / 2} L 0,${shaftWidth / 2}`;
+
+            const badgeOffsetFromTip = headLength * 0.8;
             const badgeDist = dist - badgeOffsetFromTip;
             const badgeX = fromPos.x + Math.cos(angle) * badgeDist;
             const badgeY = fromPos.y + Math.sin(angle) * badgeDist;
@@ -897,16 +901,16 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     const opacity = isHovered ? 1 : 0.7; // Slightly increased opacity for visibility since they are smaller
                     const headColor = "rgba(59, 130, 246, 0.9)";
                     const strokeColor = "rgba(59, 130, 246, 1)";
-                    
+
                     return (
-                        <g 
-                            key={id} 
+                        <g
+                            key={id}
                             // Remove event handlers from parent group
                             className="transition-all duration-200 variation-arrow-group"
                             style={{ opacity }}
                         >
                             {/* Lines Group: Make non-interactive so clicks pass through */}
-                            <g 
+                            <g
                                 transform={`translate(${fromPos.x}, ${fromPos.y}) rotate(${angleDeg})`}
                                 pointerEvents="none"
                             >
@@ -918,14 +922,14 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                             </g>
 
                             {/* Badge Group: Make interactive */}
-                            <g 
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
+                            <g
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     e.preventDefault();
                                     const isPieceSelected = localState.selectedPiece !== null || (mode === 'edit' && selectedCoord != null);
                                     if (isPieceSelected) return;
-                                    if (onNodeSelect) onNodeSelect(child); 
-                                }} 
+                                    if (onNodeSelect) onNodeSelect(child);
+                                }}
                                 onMouseEnter={() => setHoveredVariationId(id)}
                                 onMouseLeave={() => setHoveredVariationId(null)}
                                 className="cursor-pointer"
@@ -950,12 +954,12 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     const fromPos = getPixelPos(arrow.from.r, arrow.from.c);
                     const toPos = getPixelPos(arrow.to.r, arrow.to.c);
                     return (
-                        <line 
+                        <line
                             key={idx}
-                            x1={fromPos.x} y1={fromPos.y} 
-                            x2={toPos.x} y2={toPos.y} 
-                            stroke="#22c55e" 
-                            strokeWidth="8" 
+                            x1={fromPos.x} y1={fromPos.y}
+                            x2={toPos.x} y2={toPos.y}
+                            stroke="#22c55e"
+                            strokeWidth="8"
                             strokeOpacity="0.8"
                             strokeLinecap="round"
                             markerEnd={`url(#${markerGreenId})`}
@@ -963,13 +967,13 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     );
                 })}
                 {dragArrow && (
-                    <line 
-                        x1={getPixelPos(dragArrow.start.r, dragArrow.start.c).x} 
-                        y1={getPixelPos(dragArrow.start.r, dragArrow.start.c).y} 
-                        x2={dragArrow.current.x} 
-                        y2={dragArrow.current.y} 
-                        stroke="#22c55e" 
-                        strokeWidth="8" 
+                    <line
+                        x1={getPixelPos(dragArrow.start.r, dragArrow.start.c).x}
+                        y1={getPixelPos(dragArrow.start.r, dragArrow.start.c).y}
+                        x2={dragArrow.current.x}
+                        y2={dragArrow.current.y}
+                        stroke="#22c55e"
+                        strokeWidth="8"
                         strokeOpacity="0.5"
                         strokeLinecap="round"
                         markerEnd={`url(#${markerGreenId})`}
@@ -980,8 +984,8 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     };
 
     return (
-        <div 
-            ref={containerRef} 
+        <div
+            ref={containerRef}
             className="w-full h-full flex justify-center items-center overflow-hidden bg-[#2a2a2e] rounded-lg shadow-2xl border border-zinc-700 select-none relative"
             onContextMenu={handleContainerContextMenu}
             onMouseDown={handleContainerMouseDown}
@@ -989,16 +993,17 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             onMouseUp={handleContainerMouseUp}
             onMouseLeave={() => setDragArrow(null)}
         >
-            <canvas 
+            <canvas
                 ref={canvasRef}
-                width={dimensions.width}
-                height={dimensions.height}
+                width={dimensions.width * dimensions.dpr}
+                height={dimensions.height * dimensions.dpr}
+                style={{ width: dimensions.width, height: dimensions.height }}
                 onClick={handleCanvasClick}
                 onDoubleClick={handleCanvasDoubleClick}
                 className="cursor-pointer touch-none z-10"
             />
 
-            <svg 
+            <svg
                 className="absolute inset-0 w-full h-full pointer-events-none z-20"
                 viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
             >
@@ -1021,22 +1026,22 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     </mask>
 
                     <pattern id={patternId} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-                         <path d="M 10 0 L 0 10 L 10 20" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                         <animateTransform attributeName="patternTransform" type="translate" from="0 0" to="20 0" dur="1.5s" repeatCount="indefinite" />
-                         <rect width="20" height="20" fill="rgba(59, 130, 246, 0.4)" />
+                        <path d="M 10 0 L 0 10 L 10 20" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <animateTransform attributeName="patternTransform" type="translate" from="0 0" to="20 0" dur="1.5s" repeatCount="indefinite" />
+                        <rect width="20" height="20" fill="rgba(59, 130, 246, 0.4)" />
                     </pattern>
                 </defs>
-                
+
                 <RenderManualArrows />
                 <RenderVariationArrows />
             </svg>
 
             {activeFlashes.map(flash => {
-                 const { gridSize, offsetX, offsetY } = dimensions;
-                 if (dimensions.width === 0) return null;
-                 const v = getVisualPos(flash.r, flash.c);
-                 return (
-                     <div 
+                const { gridSize, offsetX, offsetY } = dimensions;
+                if (dimensions.width === 0) return null;
+                const v = getVisualPos(flash.r, flash.c);
+                return (
+                    <div
                         key={flash.id}
                         className="absolute flex items-center justify-center text-red-600 font-bold z-30 pointer-events-none animate-ping-fade"
                         style={{
@@ -1047,12 +1052,12 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                             transform: 'translate(-50%, -50%)',
                             fontSize: gridSize * 0.8
                         }}
-                     >
+                    >
                         ✖
-                     </div>
-                 );
+                    </div>
+                );
             })}
-            
+
             <style>{`
                 @keyframes ping-fade {
                     0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
