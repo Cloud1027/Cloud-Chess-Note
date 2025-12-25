@@ -32,7 +32,7 @@ const playSound = (pieceType: string, isCapture: boolean, enabled: boolean) => {
 
         const audio = new Audio(`/sounds/${soundFile}.mp3`);
         audio.volume = 1.0;
-        
+
         // Play and handle potential autoplay restrictions
         const playPromise = audio.play();
         if (playPromise !== undefined) {
@@ -60,11 +60,11 @@ const cloneBranch = (sourceNode: MoveNode, newParentId: string | null): MoveNode
         id: newId,
         parentId: newParentId,
         // Deep copy children
-        children: [] 
+        children: []
     };
-    
+
     newNode.children = sourceNode.children.map(child => cloneBranch(child, newId));
-    
+
     // Fix selection logic for cloned node
     if (sourceNode.selectedChildId) {
         const selectedIndex = sourceNode.children.findIndex(c => c.id === sourceNode.selectedChildId);
@@ -74,7 +74,7 @@ const cloneBranch = (sourceNode: MoveNode, newParentId: string | null): MoveNode
             newNode.selectedChildId = newNode.children.length > 0 ? newNode.children[0].id : null;
         }
     }
-    
+
     return newNode;
 };
 
@@ -117,18 +117,18 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
     const [currentNodeId, setCurrentNodeId] = useState<string>('root');
     const [notification, setNotification] = useState<NotificationState>({ show: false, title: '', message: '', type: 'info' });
-    const [confirmState, setConfirmState] = useState<ConfirmState>({ show: false, title: '', message: '', onConfirm: () => {} });
-    
+    const [confirmState, setConfirmState] = useState<ConfirmState>({ show: false, title: '', message: '', onConfirm: () => { } });
+
     // Memorization State
     const [memConfig, setMemConfig] = useState<MemorizationConfig>({ active: false, side: 'red', mode: 'main', randomRange: '' });
     const [memErrors, setMemErrors] = useState<MemorizationError[]>([]);
     const [memTotalSteps, setMemTotalSteps] = useState(0);
-    const [memStartNodeId, setMemStartNodeId] = useState<string>('root'); 
+    const [memStartNodeId, setMemStartNodeId] = useState<string>('root');
     const [showReport, setShowReport] = useState(false);
     const computerTimeoutRef = useRef<number | null>(null);
 
     const closeNotification = () => setNotification(prev => ({ ...prev, show: false }));
-    
+
     const showConfirm = (title: string, message: string, onConfirm: () => void) => {
         setConfirmState({ show: true, title, message, onConfirm });
     };
@@ -187,7 +187,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
         let curr = currentNode;
         let depth = 0;
         while (curr.children.length > 0 && depth < 200) {
-            let nextChild = curr.selectedChildId 
+            let nextChild = curr.selectedChildId
                 ? curr.children.find(c => c.id === curr.selectedChildId)
                 : curr.children[0];
             if (!nextChild) nextChild = curr.children[0];
@@ -196,7 +196,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
             depth++;
         }
         return [...pastPath, ...futurePath];
-    }, [currentNode, rootNode]); 
+    }, [currentNode, rootNode]);
 
     // --- Memorization: Computer Logic ---
     useEffect(() => {
@@ -204,7 +204,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
             if (computerTimeoutRef.current) clearTimeout(computerTimeoutRef.current);
             return;
         }
-        
+
         const curr = findNodeById(currentNodeId, rootNode);
         if (!curr) return;
 
@@ -237,7 +237,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
                                     const s = start.charCodeAt(0) - 65;
                                     const e = end.charCodeAt(0) - 65;
                                     if (!isNaN(s) && !isNaN(e)) {
-                                        for(let k=Math.min(s,e); k<=Math.max(s,e); k++) whitelist.push(k);
+                                        for (let k = Math.min(s, e); k <= Math.max(s, e); k++) whitelist.push(k);
                                     }
                                 } else {
                                     const idx = p.charCodeAt(0) - 65;
@@ -247,7 +247,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
                             if (whitelist.length > 0) {
                                 allowedIndices = allowedIndices.filter(i => whitelist.includes(i));
                             }
-                        } catch (e) {}
+                        } catch (e) { }
                     }
 
                     if (allowedIndices.length === 0) allowedIndices = candidates.map((_, i) => i);
@@ -303,16 +303,16 @@ export const useMoveTree = (enableSound: boolean = true) => {
             const [fromIdx, toIdx] = m.moveStr.split('-').map(Number);
             const from = { r: Math.floor(fromIdx / 9), c: fromIdx % 9 };
             const to = { r: Math.floor(toIdx / 9), c: toIdx % 9 };
-            
+
             const piece = currentBoard[from.r][from.c];
             if (!piece) break;
 
             const captured = currentBoard[to.r][to.c];
-            
+
             const newBoard = currentBoard.map(row => [...row]);
             newBoard[to.r][to.c] = piece;
             newBoard[from.r][from.c] = null;
-            
+
             const nextTurn = currentTurn === 'red' ? 'black' : 'red';
             const newFen = getFen(newBoard, nextTurn);
 
@@ -330,7 +330,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
             currentNode.children.push(newNode);
             currentNode.selectedChildId = newNode.id;
-            
+
             currentNode = newNode;
             currentBoard = newBoard;
             currentTurn = nextTurn;
@@ -340,19 +340,19 @@ export const useMoveTree = (enableSound: boolean = true) => {
         setCurrentNodeId(newRoot.id);
     };
 
-    const addMove = (moveData: { from: Point; to: Point; piece: Piece; captured: Piece | null; notation: string }, newBoard: (Piece|null)[][]) => {
+    const addMove = (moveData: { from: Point; to: Point; piece: Piece; captured: Piece | null; notation: string }, newBoard: (Piece | null)[][]) => {
         if (memConfig.active) {
             const curr = findNodeById(currentNodeId, rootNode);
             if (!curr) return false;
 
             const isPlayerTurn = memConfig.side === 'both' || curr.turn === memConfig.side;
-            if (!isPlayerTurn) return false; 
+            if (!isPlayerTurn) return false;
 
             const matchedChild = curr.children.find(child => {
                 if (!child.move) return false;
                 const m = child.move;
                 return m.from.r === moveData.from.r && m.from.c === moveData.from.c &&
-                       m.to.r === moveData.to.r && m.to.c === moveData.to.c;
+                    m.to.r === moveData.to.r && m.to.c === moveData.to.c;
             });
 
             if (matchedChild) {
@@ -376,7 +376,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
                         return [...prev, { round, nodeId: curr.id, correctNotations: corrects, count: 1 }];
                     }
                 });
-                return false; 
+                return false;
             }
         }
 
@@ -385,7 +385,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
         const newRoot = JSON.parse(JSON.stringify(rootNode));
         const ctx = findNodeContext(newRoot, currentNodeId);
-        if (!ctx) return false; 
+        if (!ctx) return false;
         const nodeInNewTree = ctx.node;
 
         const existingChild = nodeInNewTree.children.find((child: MoveNode) => child.move?.notation === moveData.notation);
@@ -399,7 +399,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
             const newFen = getFen(newBoard, nextTurn);
 
             const newNode: MoveNode = {
-                id: Date.now().toString() + Math.random().toString().slice(2,6),
+                id: Date.now().toString() + Math.random().toString().slice(2, 6),
                 parentId: nodeInNewTree.id,
                 move: moveData,
                 boardState: newBoard,
@@ -409,7 +409,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
                 selectedChildId: null,
                 fen: newFen
             };
-            
+
             nodeInNewTree.children.push(newNode);
             nodeInNewTree.selectedChildId = newNode.id;
             setRootNode(newRoot);
@@ -421,15 +421,15 @@ export const useMoveTree = (enableSound: boolean = true) => {
     const getHint = useCallback(() => {
         const curr = findNodeById(currentNodeId, rootNode);
         if (!curr || curr.children.length === 0) return null;
-        const target = curr.selectedChildId 
-            ? curr.children.find(c => c.id === curr.selectedChildId) 
+        const target = curr.selectedChildId
+            ? curr.children.find(c => c.id === curr.selectedChildId)
             : curr.children[0];
-        
+
         return target?.move ? { from: target.move.from, to: target.move.to } : null;
     }, [currentNodeId, rootNode]);
 
     const jumpToMove = (targetNode: MoveNode) => {
-        if (memConfig.active) return; 
+        if (memConfig.active) return;
         const newRoot = JSON.parse(JSON.stringify(rootNode));
         const getPath = (r: MoveNode, tId: string): MoveNode[] | null => {
             if (r.id === tId) return [r];
@@ -442,7 +442,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
         const path = getPath(newRoot, targetNode.id);
         if (path) {
             for (let i = 0; i < path.length - 1; i++) {
-                path[i].selectedChildId = path[i+1].id;
+                path[i].selectedChildId = path[i + 1].id;
             }
         }
         setRootNode(newRoot);
@@ -458,40 +458,40 @@ export const useMoveTree = (enableSound: boolean = true) => {
         }
     };
 
-    const batchUpdateComments = (updates: {id: string, text: string}[]) => {
+    const batchUpdateComments = (updates: { id: string, text: string }[]) => {
         const newRoot = JSON.parse(JSON.stringify(rootNode));
         let updatedCount = 0;
-        updates.forEach(({id, text}) => {
-             const ctx = findNodeContext(newRoot, id);
-             if (ctx) {
-                 ctx.node.comment = text;
-                 updatedCount++;
-             }
+        updates.forEach(({ id, text }) => {
+            const ctx = findNodeContext(newRoot, id);
+            if (ctx) {
+                ctx.node.comment = text;
+                updatedCount++;
+            }
         });
         if (updatedCount > 0) setRootNode(newRoot);
     };
 
     const deleteCurrentMove = () => {
         if (currentNodeId === 'root') {
-             setNotification({ show: true, title: '操作無效', message: '無法刪除起始局面。', type: 'error' });
-             return;
+            setNotification({ show: true, title: '操作無效', message: '無法刪除起始局面。', type: 'error' });
+            return;
         }
         deleteNode(currentNodeId);
     };
 
     const deleteNode = (nodeId: string) => {
         if (nodeId === 'root') return;
-        
+
         const newRoot = JSON.parse(JSON.stringify(rootNode));
         const ctx = findNodeContext(newRoot, nodeId);
-        
+
         if (!ctx || !ctx.parent) return;
         const { parent, index } = ctx;
-        
+
         parent.children.splice(index, 1);
-        
-        let nextNodeId = parent.id; 
-        
+
+        let nextNodeId = parent.id;
+
         if (parent.selectedChildId === nodeId) {
             if (parent.children.length > 0) {
                 const newIndex = Math.min(index, parent.children.length - 1);
@@ -501,9 +501,9 @@ export const useMoveTree = (enableSound: boolean = true) => {
                 parent.selectedChildId = null;
             }
         }
-        
+
         const exists = findNodeById(currentNodeId, newRoot);
-        
+
         if (!exists) {
             if (parent.selectedChildId) {
                 nextNodeId = parent.selectedChildId;
@@ -543,7 +543,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
         const newRoot = JSON.parse(JSON.stringify(rootNode));
         const targetFen = currentNode.fen;
         const targetBaseFen = getBaseFen(targetFen);
-        
+
         // 1. Find all identical positions (same FEN) in the tree
         const matchingNodes: MoveNode[] = [];
         const traverse = (n: MoveNode) => {
@@ -561,14 +561,14 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
         // 2. Accumulate ALL variations into a temporary "Union List"
         const unionChildren: MoveNode[] = [];
-        
+
         matchingNodes.forEach(node => {
             mergeDeep(unionChildren, node.children, 'temp-union-parent');
         });
 
         // 3. Apply the Union List back to EVERY matching node.
         let totalAdded = 0;
-        
+
         matchingNodes.forEach(node => {
             const added = mergeDeep(node.children, unionChildren, node.id);
             totalAdded += added;
@@ -576,18 +576,18 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
         if (totalAdded > 0) {
             setRootNode(newRoot);
-            setNotification({ 
-                show: true, 
-                title: '串聯完成', 
-                message: `已同步 ${matchingNodes.length} 個相同局面。\n因遞迴合併，共補充了 ${totalAdded} 個變著分支(含深層變著)。`, 
-                type: 'success' 
+            setNotification({
+                show: true,
+                title: '串聯完成',
+                message: `已同步 ${matchingNodes.length} 個相同局面。\n因遞迴合併，共補充了 ${totalAdded} 個變著分支(含深層變著)。`,
+                type: 'success'
             });
         } else {
-            setNotification({ 
-                show: true, 
-                title: '無需更新', 
-                message: `發現 ${matchingNodes.length} 個相同局面，且它們的所有後續變化已完全一致。`, 
-                type: 'info' 
+            setNotification({
+                show: true,
+                title: '無需更新',
+                message: `發現 ${matchingNodes.length} 個相同局面，且它們的所有後續變化已完全一致。`,
+                type: 'info'
             });
         }
     };
@@ -606,7 +606,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
             }
         } else if (direction === 'end') {
             let temp = curr;
-            while(temp.children.length > 0) {
+            while (temp.children.length > 0) {
                 const nextChild = temp.selectedChildId ? temp.children.find(c => c.id === temp.selectedChildId) : temp.children[0];
                 if (nextChild) temp = nextChild; else temp = temp.children[0];
             }
@@ -616,7 +616,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
     const navigateVariation = useCallback((direction: 'prev' | 'next') => {
         if (memConfig.active) return;
-        
+
         let curr = findNodeById(currentNodeId, rootNode);
         if (!curr) return;
 
@@ -631,23 +631,23 @@ export const useMoveTree = (enableSound: boolean = true) => {
             while (curr && curr.parentId) {
                 const parent = findNodeById(curr.parentId, rootNode);
                 if (!parent) break;
-                
+
                 if (parent.children.length > 1) {
-                    setCurrentNodeId(curr.id); 
+                    setCurrentNodeId(curr.id);
                     return;
                 }
-                
-                curr = parent; 
+
+                curr = parent;
             }
             setNotification({ show: true, title: '提示', message: '無上一個變著節點', type: 'info' });
         } else {
             while (curr.children.length > 0) {
                 if (curr.children.length > 1) {
                     const nextId = curr.selectedChildId || curr.children[0].id;
-                    setCurrentNodeId(nextId); 
+                    setCurrentNodeId(nextId);
                     return;
                 }
-                
+
                 const nextId = curr.selectedChildId || curr.children[0].id;
                 curr = curr.children.find(c => c.id === nextId) || curr.children[0];
             }
@@ -657,7 +657,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
     const cycleVariation = useCallback((direction: 'up' | 'down') => {
         if (memConfig.active) return;
-        
+
         const curr = findNodeById(currentNodeId, rootNode);
         if (!curr || !curr.parentId) return;
 
@@ -676,10 +676,10 @@ export const useMoveTree = (enableSound: boolean = true) => {
 
         if (targetIndex !== -1) {
             const siblingId = parent.children[targetIndex].id;
-            
+
             const newRoot = JSON.parse(JSON.stringify(rootNode));
             const parentContext = findNodeContext(newRoot, parent.id);
-            
+
             if (parentContext) {
                 parentContext.node.selectedChildId = siblingId;
                 setRootNode(newRoot);
@@ -694,10 +694,10 @@ export const useMoveTree = (enableSound: boolean = true) => {
             let path = [n];
             let curr = n;
             while (curr.children.length > 0) {
-                 let next = curr.selectedChildId ? curr.children.find(c => c.id === curr.selectedChildId) : curr.children[0];
-                 if (!next) next = curr.children[0];
-                 path.push(next);
-                 curr = next;
+                let next = curr.selectedChildId ? curr.children.find(c => c.id === curr.selectedChildId) : curr.children[0];
+                if (!next) next = curr.children[0];
+                path.push(next);
+                curr = next;
             }
             return path;
         };
@@ -707,16 +707,25 @@ export const useMoveTree = (enableSound: boolean = true) => {
         }
     }, [rootNode, memConfig.active]);
 
-    const startMemorization = (config: any) => { 
-        setMemConfig({ ...config, active: true }); 
+    const startMemorization = (config: any) => {
+        setMemConfig({ ...config, active: true });
         setMemErrors([]);
         setMemTotalSteps(0);
         setMemStartNodeId(currentNodeId);
     };
-    
-    const stopMemorization = () => { 
+
+    const stopMemorization = () => {
         setMemConfig(prev => ({ ...prev, active: false }));
         setShowReport(true);
+    };
+
+    const restoreState = (newRoot: MoveNode, targetNodeId?: string) => {
+        setRootNode(newRoot);
+        if (targetNodeId) {
+            setCurrentNodeId(targetNodeId);
+        } else {
+            setCurrentNodeId(newRoot.id);
+        }
     };
 
     const setRootNodePublic = (node: MoveNode) => {
@@ -729,7 +738,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
         rootNode,
         activePath,
         addMove,
-        importGame, 
+        importGame,
         jumpToMove,
         updateComment,
         batchUpdateComments,
@@ -739,7 +748,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
         linkMovesByFen,
         navigate,
         navigateVariation,
-        cycleVariation, 
+        cycleVariation,
         jumpToStep,
         notification,
         closeNotification,
@@ -747,6 +756,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
         showConfirm,
         closeConfirm,
         setRootNode: setRootNodePublic,
+        restoreState,
         memConfig,
         memErrors,
         memTotalSteps,

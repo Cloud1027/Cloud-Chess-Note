@@ -11,19 +11,35 @@ interface HeaderProps {
     onOpenImport?: () => void;
     onOpenExport?: () => void;
     onOpenGif?: () => void;
+    onTitleChange?: (newTitle: string) => void;
     isMemorizing?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
+const Header: React.FC<HeaderProps> = ({
     title,
-    onOpenInfo, onOpenEdit, onOpenMemorize, onOpenSettings, 
+    onOpenInfo, onOpenEdit, onOpenMemorize, onOpenSettings,
     onOpenImport, onOpenExport, onOpenGif,
-    isMemorizing 
+    onTitleChange,
+    isMemorizing
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editTitleValue, setEditTitleValue] = useState(title || '');
     const menuRef = useRef<HTMLDivElement>(null);
     const fileMenuRef = useRef<HTMLDivElement>(null);
+    const titleInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setEditTitleValue(title || '');
+    }, [title]);
+
+    useEffect(() => {
+        if (isEditingTitle && titleInputRef.current) {
+            titleInputRef.current.focus();
+            titleInputRef.current.select();
+        }
+    }, [isEditingTitle]);
 
     // Close menus when clicking outside
     useEffect(() => {
@@ -58,28 +74,51 @@ const Header: React.FC<HeaderProps> = ({
                 </span>
             </div>
 
-            {/* Center Title - Absolute positioned to be always perfectly centered */}
-            {title && (
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none w-full flex justify-center px-20">
-                    <span 
-                        className="text-xl md:text-2xl font-bold text-amber-100/90 tracking-widest shadow-black drop-shadow-md truncate max-w-full" 
+            {/* Center Title - Editable */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full flex justify-center px-12 md:px-20">
+                {isEditingTitle ? (
+                    <input
+                        ref={titleInputRef}
+                        value={editTitleValue}
+                        onChange={(e) => setEditTitleValue(e.target.value)}
+                        onBlur={() => {
+                            setIsEditingTitle(false);
+                            if (onTitleChange) onTitleChange(editTitleValue);
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                setIsEditingTitle(false);
+                                if (onTitleChange) onTitleChange(editTitleValue);
+                            }
+                            if (e.key === 'Escape') {
+                                setIsEditingTitle(false);
+                                setEditTitleValue(title || '');
+                            }
+                        }}
+                        className="bg-zinc-800/50 border-b border-amber-500 text-xl md:text-2xl font-bold text-amber-100 text-center focus:outline-none w-full max-w-[300px]"
+                        style={{ fontFamily: '"KaiTi", "STKaiti", "Microsoft JhengHei", serif' }}
+                    />
+                ) : (
+                    <span
+                        onClick={() => !isMemorizing && setIsEditingTitle(true)}
+                        className={`text-xl md:text-2xl font-bold text-amber-100/90 tracking-widest shadow-black drop-shadow-md truncate max-w-full cursor-pointer hover:text-white transition-colors ${isMemorizing ? 'pointer-events-none opacity-50' : ''}`}
                         style={{ fontFamily: '"KaiTi", "STKaiti", "Microsoft JhengHei", serif' }}
                     >
-                        {title}
+                        {title || '未命名棋譜'}
                     </span>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center gap-1 z-10 bg-zinc-900/80 backdrop-blur-sm rounded-lg">
                 {/* File Dropdown */}
                 <div className="relative" ref={fileMenuRef}>
-                    <button 
-                        onClick={() => setIsFileMenuOpen(!isFileMenuOpen)} 
+                    <button
+                        onClick={() => setIsFileMenuOpen(!isFileMenuOpen)}
                         className={itemClass}
                         disabled={isMemorizing}
                     >
-                        <FileText size={16}/> 檔案 <ChevronDown size={14} className={`transition-transform ${isFileMenuOpen ? 'rotate-180' : ''}`} />
+                        <FileText size={16} /> 檔案 <ChevronDown size={14} className={`transition-transform ${isFileMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {isFileMenuOpen && (
                         <div className="absolute top-full right-0 mt-1 w-44 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 z-50 flex flex-col">
@@ -99,20 +138,20 @@ const Header: React.FC<HeaderProps> = ({
                     )}
                 </div>
 
-                <button onClick={onOpenInfo} className={itemClass} disabled={isMemorizing}><Info size={16}/> 資訊</button>
-                <button onClick={onOpenEdit} className={itemClass} disabled={isMemorizing}><Edit size={16}/> 編輯</button>
-                <button 
-                    onClick={onOpenMemorize} 
+                <button onClick={onOpenInfo} className={itemClass} disabled={isMemorizing}><Info size={16} /> 資訊</button>
+                <button onClick={onOpenEdit} className={itemClass} disabled={isMemorizing}><Edit size={16} /> 編輯</button>
+                <button
+                    onClick={onOpenMemorize}
                     className={isMemorizing ? activeItemClass : itemClass}
                     title={isMemorizing ? "停止背譜" : "開始背譜"}
                 >
-                    <BookOpen size={16}/> {isMemorizing ? "停止背譜" : "背譜"}
+                    <BookOpen size={16} /> {isMemorizing ? "停止背譜" : "背譜"}
                 </button>
-                <button onClick={onOpenSettings} className={itemClass}><Settings size={16}/> 設定</button>
+                <button onClick={onOpenSettings} className={itemClass}><Settings size={16} /> 設定</button>
             </nav>
 
             {/* Mobile Menu Icon */}
-            <button 
+            <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="md:hidden p-2 text-zinc-400 hover:text-white active:bg-zinc-800 rounded-lg transition-colors z-10"
             >
@@ -132,9 +171,9 @@ const Header: React.FC<HeaderProps> = ({
                     <button onClick={() => handleMobileClick(onOpenGif)} className="flex items-center gap-3 px-4 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors text-left" disabled={isMemorizing}>
                         <ImageIcon size={18} /> <span>匯出 GIF</span>
                     </button>
-                    
+
                     <div className="h-px bg-zinc-800 my-1 mx-2"></div>
-                    
+
                     <button onClick={() => handleMobileClick(onOpenInfo)} className="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors text-left" disabled={isMemorizing}>
                         <Info size={18} /> <span>資訊</span>
                     </button>
