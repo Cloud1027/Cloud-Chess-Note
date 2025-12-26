@@ -6,7 +6,7 @@ import ControlBar from './components/ControlBar';
 import MoveListPanel from './components/MoveListPanel';
 import CloudPanel from './components/CloudPanel';
 import MainLayout from './components/MainLayout';
-import AnalysisModal from './components/AnalysisModal';
+import { AnalysisPanel } from './components/AnalysisPanel'; // [NEW]
 import InfoModal from './components/InfoModal';
 import BoardEditorModal from './components/BoardEditorModal';
 import SettingsModal from './components/SettingsModal';
@@ -16,15 +16,16 @@ import GifExportModal from './components/GifExportModal';
 import TabManager from './components/TabManager';
 import MobileTabSwitcher from './components/MobileTabSwitcher';
 import { MemorizationSetupModal, MemorizationReportModal } from './components/MemorizationModals';
-import { X, List, Cloud, CheckCircle, AlertCircle, HelpCircle, Lightbulb, StopCircle, BookOpen, Layout, Cpu } from 'lucide-react';
+import { X, List, Cloud, CheckCircle, AlertCircle, HelpCircle, Lightbulb, StopCircle, BookOpen, Layout, Cpu, Activity } from 'lucide-react';
 import { useMoveTree } from './hooks/useMoveTree';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useAnalysis } from './hooks/useAnalysis'; // [NEW]
 import { Point, AnalysisResult, GameMetadata, AppSettings, GameTab, MoveNode } from './types';
 import { getChineseNotation, fenToBoard, ucciToCoords } from './lib/utils';
 import { EngineStats } from './lib/engine';
 import { INITIAL_BOARD_SETUP } from './constants';
 
-type TabView = 'none' | 'moves' | 'cloud' | 'tabs';
+type TabView = 'none' | 'moves' | 'cloud' | 'tabs' | 'engine' | 'analysis'; // Added analysis
 
 const DEFAULT_SETTINGS: AppSettings = {
     enableSound: true,
@@ -95,19 +96,15 @@ const App: React.FC = () => {
     }, []); // Only on mount
 
     // Sync Logic: Ensure `tabs` array is updated with the latest state of the CURRENT game
-    // whenever critical data changes. This effectively "saves" the current tab.
     useEffect(() => {
         if (!activeTabId) return;
         const activeTab = tabs.find(t => t.id === activeTabId);
-        // Prevent syncing if the current rootNode ID doesn't match the active tab's rootNode ID
-        // This is crucial to prevent race conditions during tab switching
         if (!activeTab || rootNode.id !== activeTab.rootNode.id) return;
 
         setTabs(prevTabs => {
             const currentTab = prevTabs.find(t => t.id === activeTabId);
             if (!currentTab) return prevTabs;
 
-            // Only update if something actually changed to avoid infinite loops or unnecessary renders
             if (currentTab.rootNode === rootNode &&
                 currentTab.currentNodeId === currentNode.id &&
                 currentTab.metadata === metadata) {
@@ -206,7 +203,7 @@ const App: React.FC = () => {
     const [mobileTab, setMobileTab] = useState<TabView>('none');
     const [isFlipped, setIsFlipped] = useState(false);
     const [isMirrored, setIsMirrored] = useState(false);
-    const [showAnalysis, setShowAnalysis] = useState(false);
+    const [desktopRightPanel, setDesktopRightPanel] = useState<'moves' | 'analysis'>('moves'); // [NEW]
     const [showEditor, setShowEditor] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [showImport, setShowImport] = useState(false);
@@ -215,11 +212,22 @@ const App: React.FC = () => {
     const [showMemSetup, setShowMemSetup] = useState(false);
     const [flashCoord, setFlashCoord] = useState<Point | null>(null);
     const [hintMove, setHintMove] = useState<{ from: Point, to: Point } | null>(null);
-    const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
     const [showInfoModal, setShowInfoModal] = useState(false);
 
     const [isCloudEnabled, setIsCloudEnabled] = useState(false);
     const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
+
+    // Analysis Hook
+    const analysis = useAnalysis(
+        activePath,
+        (s) => { setShouldAnimate(false); jumpToStep(s); },
+        batchUpdateComments,
+        () => {
+            // Close behavior
+            if (window.innerWidth < 1024) setMobileTab('none');
+            else setDesktopRightPanel('moves');
+        }
+    );
 
     // Compute Engine Arrows
     const engineBestMoves = React.useMemo(() => {
@@ -335,7 +343,8 @@ const App: React.FC = () => {
                         />
                         <CloudPanel
                             currentFen={currentNode.fen} currentBoard={currentNode.boardState}
-                            onMoveClick={handleCloudMove} onOpenAnalysis={() => setShowAnalysis(true)}
+                            onMoveClick={handleCloudMove}
+                            onOpenAnalysis={() => { setDesktopRightPanel('analysis'); }}
                             isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
                             onEngineStatsUpdate={setEngineStats}
                         />
@@ -353,12 +362,24 @@ const App: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <MoveListPanel
-                            movePath={activePath} currentNode={currentNode} rootNode={rootNode}
-                            onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); }}
-                            onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode}
-                            onReorder={reorderChildren} onLinkFen={linkMovesByFen}
-                        />
+                        desktopRightPanel === 'analysis' ? (
+                            <div className="flex flex-col h-full bg-zinc-950">
+                                <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
+                                    <h2 className="font-bold flex items-center gap-2"><Activity size={18} className="text-blue-500" /> 形勢分析</h2>
+                                    <button onClick={() => setDesktopRightPanel('moves')} className="p-1 hover:bg-zinc-800 rounded text-zinc-400"><X size={16} /></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    <AnalysisPanel {...analysis} />
+                                </div>
+                            </div>
+                        ) : (
+                            <MoveListPanel
+                                movePath={activePath} currentNode={currentNode} rootNode={rootNode}
+                                onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); }}
+                                onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode}
+                                onReorder={reorderChildren} onLinkFen={linkMovesByFen}
+                            />
+                        )
                     )
                 }
                 board={
@@ -409,13 +430,13 @@ const App: React.FC = () => {
                                 totalSteps={activePath.length} disabled={memConfig.active}
                             />
 
-                            {/* Mobile Analysis Panel - Stacked Below */}
+                            {/* Mobile Panels - Stacked Below */}
                             {(mobileTab === 'cloud' || mobileTab === 'engine') && (
                                 <div className="h-[25vh] border-t border-zinc-800 overflow-hidden">
                                     <CloudPanel
                                         currentFen={currentNode.fen} currentBoard={currentNode.boardState}
                                         onMoveClick={m => { handleCloudMove(m); }}
-                                        onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
+                                        onOpenAnalysis={() => { setMobileTab('analysis'); }}
                                         isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
                                         onEngineStatsUpdate={setEngineStats}
                                         isCompact={true}
@@ -425,22 +446,32 @@ const App: React.FC = () => {
                                     />
                                 </div>
                             )}
+
+                            {mobileTab === 'analysis' && (
+                                <div className="h-[25vh] border-t border-zinc-800 overflow-hidden bg-zinc-950 p-2 flex flex-col relative">
+                                    <button onClick={() => setMobileTab('none')} className="absolute top-2 right-2 p-1 text-zinc-500 z-20"><X size={16} /></button>
+                                    <AnalysisPanel {...analysis} isCompact={true} />
+                                </div>
+                            )}
                         </div>
                     )
                 }
                 mobileTabs={
-                    <div className="grid grid-cols-4 gap-2 h-full">
-                        <button onClick={() => setMobileTab(mobileTab === 'moves' ? 'none' : 'moves')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'moves' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
-                            <List size={18} /> <span className="text-xs font-bold">招法</span>
+                    <div className="grid grid-cols-5 gap-1 h-full px-1">
+                        <button onClick={() => setMobileTab(mobileTab === 'moves' ? 'none' : 'moves')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'moves' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                            <List size={16} /> <span className="text-[10px] font-bold">招法</span>
                         </button>
-                        <button onClick={() => setMobileTab(mobileTab === 'cloud' ? 'none' : 'cloud')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'cloud' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
-                            <Cloud size={18} /> <span className="text-xs font-bold">雲庫</span>
+                        <button onClick={() => setMobileTab(mobileTab === 'cloud' ? 'none' : 'cloud')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'cloud' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                            <Cloud size={16} /> <span className="text-[10px] font-bold">雲庫</span>
                         </button>
-                        <button onClick={() => setMobileTab(mobileTab === 'engine' ? 'none' : 'engine')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'engine' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
-                            <Cpu size={18} /> <span className="text-xs font-bold">引擎</span>
+                        <button onClick={() => setMobileTab(mobileTab === 'engine' ? 'none' : 'engine')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'engine' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                            <Cpu size={16} /> <span className="text-[10px] font-bold">引擎</span>
                         </button>
-                        <button onClick={() => setMobileTab(mobileTab === 'tabs' ? 'none' : 'tabs')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'tabs' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
-                            <Layout size={18} /> <span className="text-xs font-bold">分頁 ({tabs.length})</span>
+                        <button onClick={() => setMobileTab(mobileTab === 'analysis' ? 'none' : 'analysis')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'analysis' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                            <Activity size={16} /> <span className="text-[10px] font-bold">分析</span>
+                        </button>
+                        <button onClick={() => setMobileTab(mobileTab === 'tabs' ? 'none' : 'tabs')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'tabs' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                            <Layout size={16} /> <span className="text-[10px] font-bold">分頁</span>
                         </button>
                     </div>
                 }
@@ -490,7 +521,6 @@ const App: React.FC = () => {
             />
 
             <GifExportModal isOpen={showGifExport} onClose={() => setShowGifExport(false)} activePath={activePath} rootNode={rootNode} metadata={metadata} />
-            {showAnalysis && <AnalysisModal onClose={() => setShowAnalysis(false)} movePath={activePath} onJumpToStep={s => { setShouldAnimate(false); jumpToStep(s); }} onBatchUpdateComments={batchUpdateComments} results={analysisResults} setResults={setAnalysisResults} />}
 
             {/* Notifications */}
             {notification.show && (

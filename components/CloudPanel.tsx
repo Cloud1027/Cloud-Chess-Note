@@ -127,38 +127,39 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     if (isCompact) {
         return (
             <div className="flex flex-col h-full bg-zinc-900 border-t border-zinc-800 w-full overflow-hidden text-sm">
-                {/* Stats Row (Redesigned) */}
+                {/* Stats Row (Consolidated) */}
                 {(mode === 'local' || (mode === 'cloud' && moves.length > 0)) && (
-                    <div className="grid grid-cols-4 gap-1 p-2 bg-zinc-950 border-b border-zinc-800 text-xs text-center items-center shrink-0">
+                    <div className="grid grid-cols-5 gap-1 p-2 bg-zinc-950 border-b border-zinc-800 text-xs text-center items-center shrink-0">
                         <div className="flex flex-col border-r border-zinc-800">
-                            <span className="text-zinc-500 scale-90">SCORE</span>
+                            <span className="text-zinc-500 scale-75 origin-center">SCORE</span>
                             <span className={`font-mono font-bold ${getScoreColor(mode === 'local' ? (engineStats?.score || '-') : moves[0]?.score || '-')}`}>
                                 {mode === 'local' ? (engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : engineStats?.score || '-') : moves[0]?.score || '-'}
                             </span>
                         </div>
                         <div className="flex flex-col border-r border-zinc-800">
-                            <span className="text-zinc-500 scale-90">DEPTH</span>
+                            <span className="text-zinc-500 scale-75 origin-center">DEPTH</span>
                             <span className="text-amber-500 font-mono">{mode === 'local' ? (engineStats?.depth || '-') : moves[0]?.depth || '-'}</span>
                         </div>
                         <div className="flex flex-col border-r border-zinc-800">
-                            <span className="text-zinc-500 scale-90">TIME</span>
-                            <span className="text-zinc-300 font-mono">{mode === 'local' ? (engineStats ? (engineStats.time / 1000).toFixed(1) + 's' : '0s') : '-'}</span>
+                            <span className="text-zinc-500 scale-75 origin-center">TIME</span>
+                            <span className="text-zinc-300 font-mono scale-90">{mode === 'local' ? (engineStats ? (engineStats.time / 1000).toFixed(1) + 's' : '0s') : '-'}</span>
                         </div>
-                        <div className="flex flex-col justify-center items-center h-full">
+                        <div className="flex flex-col border-r border-zinc-800">
+                            <span className="text-zinc-500 scale-75 origin-center">NPS</span>
+                            <span className="text-zinc-400 font-mono scale-90">{mode === 'local' ? (engineStats ? (engineStats.nps / 1000).toFixed(0) + 'k' : '0') : '-'}</span>
+                        </div>
+                        <div className="flex flex-col justify-center items-center h-full pl-1">
                             {mode === 'local' ? (
                                 <button
                                     onClick={toggleLocalAnalysis}
                                     disabled={!engineReady}
-                                    className={`flex items-center justify-center gap-1 w-full h-full rounded text-xs font-bold transition-colors ${isLocalAnalyzing ? 'bg-red-900/40 text-red-400 border border-red-900' : 'bg-green-900/40 text-green-400 border border-green-900'}`}
+                                    className={`flex items-center justify-center gap-1 w-full h-full rounded text-[10px] font-bold transition-colors ${isLocalAnalyzing ? 'bg-red-900/40 text-red-400 border border-red-900' : 'bg-green-900/40 text-green-400 border border-green-900'}`}
                                 >
                                     {isLocalAnalyzing ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
                                     {isLocalAnalyzing ? '停止' : '計算'}
                                 </button>
                             ) : (
-                                <>
-                                    <span className="text-zinc-500 scale-90">NPS</span>
-                                    <span className="text-zinc-400 font-mono scale-90">-</span>
-                                </>
+                                <span className="text-zinc-600">-</span>
                             )}
                         </div>
                     </div>
@@ -179,9 +180,9 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                                     <tbody>
                                         {moves.slice(0, 5).map((m, i) => (
                                             <tr key={i} onClick={() => onMoveClick(ucciToCoords(m.move)!)} className="border-b border-zinc-800/50 active:bg-zinc-800">
-                                                <td className="py-1.5 text-zinc-300 font-medium">{getMoveDisplayName(m.move)}</td>
+                                                <td className="py-1.5 text-zinc-300 font-medium pl-2">{getMoveDisplayName(m.move)}</td>
                                                 <td className={`py-1.5 text-right ${getScoreColor(m.score)}`}>{m.score}</td>
-                                                <td className="py-1.5 text-right text-zinc-500">{m.winrate}%</td>
+                                                <td className="py-1.5 text-right text-zinc-500 pr-2">{m.winrate}%</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -189,28 +190,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-2">
-                            {/* Stats Row */}
-                            <div className="grid grid-cols-4 gap-1 text-center bg-zinc-900 rounded p-1">
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] text-zinc-500">SCORE</span>
-                                    <span className={`font-mono font-bold text-sm ${engineStats ? getScoreColor(engineStats.score) : 'text-zinc-600'}`}>
-                                        {engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : engineStats?.score || 0}
-                                    </span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] text-zinc-500">DEPTH</span>
-                                    <span className="font-mono font-bold text-sm text-amber-500">{engineStats?.depth || 0}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] text-zinc-500">TIME</span>
-                                    <span className="font-mono text-sm text-zinc-400">{engineStats ? (engineStats.time / 1000).toFixed(1) + 's' : '0s'}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] text-zinc-500">NPS</span>
-                                    <span className="font-mono text-sm text-zinc-400">{engineStats ? (engineStats.nps / 1000).toFixed(0) + 'k' : '0'}</span>
-                                </div>
-                            </div>
+                        <div className="flex flex-col gap-2 p-2">
+                            {/* Inner Stats Row REMOVED (Duplicate) */}
 
                             {/* PV Move */}
                             {engineStats?.bestMove && (
