@@ -382,35 +382,7 @@ const App: React.FC = () => {
                     />
                 }
                 controls={
-                    mobileTab === 'cloud' ? (
-                        <div className="h-[30vh] border-t border-zinc-800">
-                            <CloudPanel
-                                currentFen={currentNode.fen} currentBoard={currentNode.boardState}
-                                onMoveClick={m => { handleCloudMove(m); }}
-                                onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
-                                isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
-                                onEngineStatsUpdate={setEngineStats}
-                                isCompact={true}
-                                forcedMode="cloud"
-                                onNavigate={dir => { setShouldAnimate(dir === 'next'); navigate(dir); }}
-                                onMenu={() => setShowSettings(true)}
-                            />
-                        </div>
-                    ) : mobileTab === 'engine' ? (
-                        <div className="h-[30vh] border-t border-zinc-800">
-                            <CloudPanel
-                                currentFen={currentNode.fen} currentBoard={currentNode.boardState}
-                                onMoveClick={m => { handleCloudMove(m); }}
-                                onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
-                                isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
-                                onEngineStatsUpdate={setEngineStats}
-                                isCompact={true}
-                                forcedMode="local"
-                                onNavigate={dir => { setShouldAnimate(dir === 'next'); navigate(dir); }}
-                                onMenu={() => setShowSettings(true)}
-                            />
-                        </div>
-                    ) : memConfig.active ? (
+                    memConfig.active ? (
                         <div className="flex gap-4 p-4 bg-zinc-900 border-t border-zinc-800 justify-center">
                             <button
                                 onClick={handleHint}
@@ -426,14 +398,34 @@ const App: React.FC = () => {
                             </button>
                         </div>
                     ) : (
-                        <ControlBar
-                            onNavigate={dir => { setShouldAnimate(dir === 'next' || dir === 'end'); navigate(dir); }}
-                            onNavigateVariation={dir => { setShouldAnimate(false); navigateVariation(dir); }}
-                            onJumpToStep={s => { setShouldAnimate(false); jumpToStep(s); }}
-                            onFlip={() => setIsFlipped(!isFlipped)} onMirror={() => setIsMirrored(!isMirrored)}
-                            currentIndex={currentIndex !== -1 ? currentIndex : 0}
-                            totalSteps={activePath.length} disabled={memConfig.active}
-                        />
+                        <div className="flex flex-col w-full">
+                            {/* Standard Control Bar - Always Visible */}
+                            <ControlBar
+                                onNavigate={dir => { setShouldAnimate(dir === 'next' || dir === 'end'); navigate(dir); }}
+                                onNavigateVariation={dir => { setShouldAnimate(false); navigateVariation(dir); }}
+                                onJumpToStep={s => { setShouldAnimate(false); jumpToStep(s); }}
+                                onFlip={() => setIsFlipped(!isFlipped)} onMirror={() => setIsMirrored(!isMirrored)}
+                                currentIndex={currentIndex !== -1 ? currentIndex : 0}
+                                totalSteps={activePath.length} disabled={memConfig.active}
+                            />
+
+                            {/* Mobile Analysis Panel - Stacked Below */}
+                            {(mobileTab === 'cloud' || mobileTab === 'engine') && (
+                                <div className="h-[25vh] border-t border-zinc-800 overflow-hidden">
+                                    <CloudPanel
+                                        currentFen={currentNode.fen} currentBoard={currentNode.boardState}
+                                        onMoveClick={m => { handleCloudMove(m); }}
+                                        onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
+                                        isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
+                                        onEngineStatsUpdate={setEngineStats}
+                                        isCompact={true}
+                                        forcedMode={mobileTab === 'cloud' ? 'cloud' : 'local'}
+                                        onNavigate={dir => { setShouldAnimate(dir === 'next'); navigate(dir); }}
+                                        onMenu={() => setShowSettings(true)}
+                                    />
+                                </div>
+                            )}
+                        </div>
                     )
                 }
                 mobileTabs={

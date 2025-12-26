@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2 } from 'lucide-react';
 import { Point, Piece, CloudMove } from '../types';
 import { getChineseNotation, ucciToCoords, fetchCloudBookData, getChineseNotationForPV } from '../lib/utils';
 import { LocalEngine, EngineStats } from '../lib/engine';
@@ -127,36 +127,6 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     if (isCompact) {
         return (
             <div className="flex flex-col h-full bg-zinc-900 border-t border-zinc-800 w-full overflow-hidden text-sm">
-                {/* Compact Navigation Row (Replaces Header) */}
-                <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900 border-b border-zinc-800 shrink-0 h-10">
-                    {/* Left: Move Navigation */}
-                    <div className="flex gap-2">
-                        <button onClick={() => onNavigate?.('prev')} className="p-1 px-3 bg-zinc-800 rounded text-zinc-300 active:bg-zinc-700 active:scale-95 transition-transform">
-                            <ChevronLeft size={16} />
-                        </button>
-                        <button onClick={() => onNavigate?.('next')} className="p-1 px-3 bg-zinc-800 rounded text-zinc-300 active:bg-zinc-700 active:scale-95 transition-transform">
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
-
-                    {/* Right: Menu/Settings */}
-                    <div className="flex gap-2">
-                        {(mode === 'local') && (
-                            <button
-                                onClick={toggleLocalAnalysis}
-                                disabled={!engineReady}
-                                className={`flex items-center gap-1 px-3 py-1 rounded text-xs font-bold transition-colors ${isLocalAnalyzing ? 'bg-red-900/40 text-red-400 border border-red-900' : 'bg-green-900/40 text-green-400 border border-green-900'}`}
-                            >
-                                {isLocalAnalyzing ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
-                                {isLocalAnalyzing ? '停止' : '計算'}
-                            </button>
-                        )}
-                        <button onClick={onMenu} className="p-1 px-2 text-zinc-400 hover:text-zinc-200">
-                            <Settings2 size={16} />
-                        </button>
-                    </div>
-                </div>
-
                 {/* Stats Row (Redesigned) */}
                 {(mode === 'local' || (mode === 'cloud' && moves.length > 0)) && (
                     <div className="grid grid-cols-4 gap-1 p-2 bg-zinc-950 border-b border-zinc-800 text-xs text-center items-center shrink-0">
@@ -174,9 +144,22 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                             <span className="text-zinc-500 scale-90">TIME</span>
                             <span className="text-zinc-300 font-mono">{mode === 'local' ? (engineStats ? (engineStats.time / 1000).toFixed(1) + 's' : '0s') : '-'}</span>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-zinc-500 scale-90">NPS</span>
-                            <span className="text-zinc-400 font-mono scale-90">{mode === 'local' ? (engineStats ? (engineStats.nps / 1000).toFixed(0) + 'k' : '0') : '-'}</span>
+                        <div className="flex flex-col justify-center items-center h-full">
+                            {mode === 'local' ? (
+                                <button
+                                    onClick={toggleLocalAnalysis}
+                                    disabled={!engineReady}
+                                    className={`flex items-center justify-center gap-1 w-full h-full rounded text-xs font-bold transition-colors ${isLocalAnalyzing ? 'bg-red-900/40 text-red-400 border border-red-900' : 'bg-green-900/40 text-green-400 border border-green-900'}`}
+                                >
+                                    {isLocalAnalyzing ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
+                                    {isLocalAnalyzing ? '停止' : '計算'}
+                                </button>
+                            ) : (
+                                <>
+                                    <span className="text-zinc-500 scale-90">NPS</span>
+                                    <span className="text-zinc-400 font-mono scale-90">-</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}
