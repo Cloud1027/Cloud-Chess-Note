@@ -117,9 +117,10 @@ export const useAnalysis = (
             const playedCloudMove = cloudMoves.find(m => m.move === actualMoveUcci);
             const bestCloudMove = cloudMoves.length > 0 ? cloudMoves[0] : null;
 
-            // [RESTORED] Fix Zig-Zag: Convert Cloud "Side-to-Move" score to "Absolute (Red)" score.
-            // User confirmed Black * -1 is needed to align the lines.
-            const isRedTurn = currentNode.turn === 'red';
+            // [FIX Iter 6] Enforce "Red No Flip, Black Flip" logic.
+            // Evidence: Graph goes UP (Positive) when Red is Lose (Black Adv).
+            // So Black's Positive Score must be flipped to Negative (Red Perspective).
+            const isRedTurn = currentNode.turn === 'red' || currentNode.turn === 'w';
             if (!isRedTurn) {
                 if (playedCloudMove) playedCloudMove.score *= -1;
                 if (bestCloudMove) bestCloudMove.score *= -1;

@@ -845,9 +845,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 
     const handleContainerContextMenu = (e: React.MouseEvent) => e.preventDefault();
     const handleContainerMouseDown = (e: React.MouseEvent) => {
-        if (e.button !== 0) return; // Left click only (Changed from Right Click as per user request)
-        // Note: This might conflict with Piece Selection if not careful.
-        // Current implementation relies on Drag Threshold in MouseUp to confirm Arrow creation.
+        if (e.button !== 2) return; // Reverted to Right-Click Drag as per user request (Left click conflicts with moves)
         e.preventDefault();
         const rect = containerRef.current!.getBoundingClientRect();
         const x = e.clientX - rect.left;

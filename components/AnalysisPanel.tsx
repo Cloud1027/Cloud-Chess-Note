@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Cloud, Cpu, Play, StopCircle, RefreshCw, AlertTriangle, Edit3 } from 'lucide-react';
+import { Cloud, Cpu, StopCircle, Edit3 } from 'lucide-react';
 import { AnalysisResult } from '../types';
 
 interface AnalysisPanelProps {
@@ -56,45 +56,73 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
         if (onJumpToStep) onJumpToStep(moveIndex);
     };
 
-    // Chart Logic
+    // --- Chart Logic (Non-Linear Scale) ---
     const chartHeight = isCompact ? 150 : 200;
     const chartWidth = 600;
-    const padding = 20;
+    const padding = 0; // Full width
 
-    // Auto-Scale Logic
-    const getScale = () => {
-        if (results.length === 0) return { min: -1000, max: 1000 };
-        let minScore = -500;
-        let maxScore = 500;
-        results.forEach(r => {
-            if (r.score !== null && !isNaN(r.score)) {
-                if (r.score < minScore) minScore = r.score;
-                if (r.score > maxScore) maxScore = r.score;
-            }
-        });
-        const range = maxScore - minScore;
-        const paddingVal = range * 0.1; // 10% padding
-        return { min: minScore - paddingVal, max: maxScore + paddingVal };
+    // Scale Config (Symmetric Non-Linear)
+    // Zone 1 (Top 10%): 500 to 2000+
+    // Zone 2 (Mid 80%): -500 to 500
+    // Zone 3 (Bot 10%): -2000+ to -500
+    const midZonePct = 0.8;
+    const edgeZonePct = 0.1;
+    const scoreThreshold = 500;
+    const scoreMaxVisual = 2000; // Cap for linear interpolation in edge zones
+
+    const mapScoreToY = (score: number) => {
+        // Invert Y (0 is top)
+        // Mid Zone
+        if (score >= -scoreThreshold && score <= scoreThreshold) {
+            // Map [-500, 500] to [0.9H, 0.1H] (Remember 0 is Top)
+            // Val 500 -> 0.1H
+            // Val -500 -> 0.9H
+            // Ratio within range (0 to 1): (score - (-500)) / 1000
+            const ratio = (score + scoreThreshold) / (scoreThreshold * 2);
+            // Visual range: Top(0.1) to Bottom(0.9)
+            // Y = 0.9 - ratio * 0.8
+            return chartHeight * (0.9 - ratio * 0.8);
+        }
+        // Top Zone (> 500)
+        if (score > scoreThreshold) {
+            // Map [500, 2000] to [0.1H, 0.0H]
+            const cappedScore = Math.min(score, scoreMaxVisual);
+            const ratio = (cappedScore - scoreThreshold) / (scoreMaxVisual - scoreThreshold);
+            // Y = 0.1 - ratio * 0.1
+            return chartHeight * (0.1 - ratio * 0.1);
+        }
+        // Bottom Zone (< -500)
+        if (score < -scoreThreshold) {
+            // Map [-2000, -500] to [1.0H, 0.9H]
+            const cappedScore = Math.max(score, -scoreMaxVisual);
+            // ratio 0 (-500) -> 1 (-2000)
+            // (score - (-500)) / (-2000 - (-500)) -> (-score - 500) / 1500 ??
+            // Let's do: absScore from 500 to 2000
+            const absScore = Math.abs(cappedScore);
+            const ratio = (absScore - scoreThreshold) / (scoreMaxVisual - scoreThreshold);
+            // start at 0.9, go to 1.0
+            return chartHeight * (0.9 + ratio * 0.1);
+        }
+        return chartHeight / 2;
     };
-    const { min: currentMinY, max: currentMaxY } = getScale();
 
-    const getCoordinates = () => {
-        if (results.length === 0) return "";
-        const validPoints = results.map((res, idx) => ({ ...res, idx })).filter(r => r.score !== null && !isNaN(r.score));
-        if (validPoints.length === 0) return "";
+    const pointsPath = results
+        .filter(r => r.score !== null && !isNaN(r.score))
+        .map((res, i) => {
+            const x = padding + (res.moveIndex / (Math.max(results[results.length - 1]?.moveIndex || 1, 1))) * (chartWidth - padding * 2);
+            // Note: using moveIndex for X-axis makes gaps for skipped moves visible, nice. 
+            // But original used array index. Let's switch to array index for consistent spacing if preferred, 
+            // but user wants "connected lines". Array index is safer for filling.
+            // Actually, let's stick to array index mapping for simplicity and guaranteed connection.
+            const xIdx = (i / (results.filter(r => r.score !== null).length - 1 || 1)) * chartWidth;
 
-        const points = validPoints.map((res, i) => {
-            const x = padding + (res.idx / (results.length - 1 || 1)) * (chartWidth - padding * 2);
-            let val = res.score!;
-            val = Math.max(currentMinY, Math.min(currentMaxY, val));
-            const y = chartHeight - ((val - currentMinY) / (currentMaxY - currentMinY)) * chartHeight;
+            const y = mapScoreToY(res.score!);
             const cmd = i === 0 ? 'M' : 'L';
-            return `${cmd} ${x},${y}`;
-        });
-        return points.join(" ");
-    };
+            return `${cmd} ${xIdx},${y}`;
+        }).join(" ");
 
-    const pointsPath = getCoordinates();
+    // Zero Line Y
+    const zeroY = chartHeight / 2; // Symmetric Center
 
     // -- Sub-renderers --
 
@@ -128,37 +156,44 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     );
 
     const renderChart = () => (
-        <div className="relative bg-zinc-950 rounded border border-zinc-800 p-2 select-none h-full flex flex-col justify-center overflow-hidden">
+        <div className="relative bg-zinc-950 rounded border border-zinc-800 select-none h-full flex flex-col justify-center overflow-hidden">
             {results.length > 0 ? (
-                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full overflow-visible preserve-3d">
-                    {/* Zero Line */}
-                    <line x1={padding} y1={chartHeight / 2} x2={chartWidth - padding} y2={chartHeight / 2} stroke="#333" strokeDasharray="4" />
+                <>
+                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full overflow-visible preserve-3d absolute inset-0 z-10">
+                        {/* Zero Line - Always Center */}
+                        <line x1={0} y1={zeroY} x2={chartWidth} y2={zeroY} stroke="#444" strokeDasharray="4" strokeWidth="1" />
 
-                    {/* Path */}
-                    <path d={pointsPath} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                        {/* Path */}
+                        <path d={pointsPath} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
 
-                    {/* Interactive Points */}
-                    {results.map((res, idx) => {
-                        if (res.score === null) return null;
-                        const x = padding + (idx / (results.length - 1 || 1)) * (chartWidth - padding * 2);
-                        const val = Math.max(currentMinY, Math.min(currentMaxY, res.score));
-                        const y = chartHeight - ((val - currentMinY) / (currentMaxY - currentMinY)) * chartHeight;
+                        {/* Interactive Points */}
+                        {results.filter(r => r.score !== null).map((res, i, arr) => {
+                            const x = (i / (arr.length - 1 || 1)) * chartWidth;
+                            const y = mapScoreToY(res.score!);
 
-                        // Highlight critical errors
-                        const isError = res.quality === 'blunder' || res.quality === 'mistake';
-                        const color = res.quality === 'blunder' ? '#ef4444' : (res.quality === 'mistake' ? '#f97316' : '#fbbf24');
-                        const isSelected = selectedIndex === idx;
+                            // Highlight critical errors
+                            const isError = res.quality === 'blunder' || res.quality === 'mistake';
+                            const color = res.quality === 'blunder' ? '#ef4444' : (res.quality === 'mistake' ? '#f97316' : '#fbbf24');
+                            const isSelected = selectedIndex === i;
 
-                        return (
-                            <g key={idx} onClick={() => handleJumpTo(idx, res.moveIndex)} className="cursor-pointer group">
-                                {/* Hit Area */}
-                                <rect x={x - 5} y={0} width={10} height={chartHeight} fill="transparent" />
-                                {/* Visible Dot */}
-                                <circle cx={x} cy={y} r={selectedIndex === idx ? 4 : (isError ? 3 : 1.5)} fill={isError ? color : '#3b82f6'} className="transition-all duration-200" stroke={isSelected ? '#fff' : 'none'} strokeWidth={isSelected ? 1.5 : 0} />
-                            </g>
-                        );
-                    })}
-                </svg>
+                            return (
+                                <g key={i} onClick={() => handleJumpTo(i, res.moveIndex)} className="cursor-pointer group">
+                                    <rect x={x - 5} y={0} width={10} height={chartHeight} fill="transparent" />
+                                    <circle cx={x} cy={y} r={selectedIndex === i ? 4 : (isError ? 3 : 0)} fill={isError ? color : '#3b82f6'} className="transition-all duration-200" stroke={isSelected ? '#fff' : 'none'} strokeWidth={isSelected ? 1.5 : 0} />
+                                </g>
+                            );
+                        })}
+                    </svg>
+
+                    {/* Y-Axis Labels (Right Side) */}
+                    <div className="absolute right-1 top-0 bottom-0 flex flex-col justify-between text-[9px] text-zinc-500 font-mono py-1 z-0 pointer-events-none text-right pr-1 border-r border-zinc-800/50">
+                        <span>+2000</span>
+                        <span>+500</span>
+                        <span>0</span>
+                        <span>-500</span>
+                        <span>-2000</span>
+                    </div>
+                </>
             ) : (
                 <div className="text-zinc-500 text-xs text-center">暫無數據，請點擊上方按鈕開始分析</div>
             )}
@@ -201,15 +236,12 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
         </div>
     );
 
-    // --- Compact Mode (Mobile Tabs) ---
+    // --- Compact Mode ---
     if (isCompact) {
         return (
             <div className="flex flex-col h-full gap-2 relative">
-                {/* 1. Control Bar */}
                 {renderControls()}
                 {isAnalyzing && <div className="text-[10px] text-zinc-500 text-center animate-pulse -mt-1">{currentStepInfo}</div>}
-
-                {/* 2. Mobile Tabs */}
                 <div className="flex bg-zinc-900 rounded-lg overflow-hidden shrink-0 border border-zinc-800 p-0.5 gap-0.5">
                     <button onClick={() => setMobileTab('graph')} className={`flex-1 py-1.5 text-xs rounded-md transition-all ${mobileTab === 'graph' ? 'bg-zinc-700 text-white font-bold shadow' : 'text-zinc-500 hover:text-zinc-300'}`}>
                         局勢圖
@@ -221,12 +253,8 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                         錯誤列表
                     </button>
                 </div>
-
-                {/* 3. Content Area (Scrollable) */}
                 <div className="flex-1 overflow-y-auto min-h-0 relative bg-zinc-950/30 rounded-lg">
-                    {mobileTab === 'graph' && (
-                        <div className="h-full">{renderChart()}</div>
-                    )}
+                    {mobileTab === 'graph' && (<div className="h-full">{renderChart()}</div>)}
                     {mobileTab === 'report' && (
                         <div className="space-y-3 p-2 h-full overflow-y-auto">
                             {renderStats()}
@@ -247,19 +275,16 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
         );
     }
 
-    // --- Desktop Mode (Standard) ---
+    // --- Desktop Mode ---
     return (
         <div className="flex flex-col h-full gap-4 p-2">
             {renderControls()}
             {isAnalyzing && <div className="text-xs text-zinc-500 text-center animate-pulse">{currentStepInfo}</div>}
-
             <div className="h-48 shrink-0">
                 {renderChart()}
             </div>
-
             {renderStats()}
             {renderErrorList()}
-
             <button onClick={writeAnnotations} className="py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-sm text-zinc-300 flex items-center justify-center gap-2 transition-colors">
                 <Edit3 size={16} /> 將分析結果寫入棋譜註釋
             </button>
@@ -267,17 +292,13 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     );
 };
 
-// --- Sub Components ---
-
 const BadMoveItem: React.FC<{ res: AnalysisResult; idx: number; selectedIndex: number | null; onJump: (index: number, moveIndex: number) => void; }> = ({ res, idx, selectedIndex, onJump }) => {
     let borderColor = '', bgColor = '', textColor = '';
     if (res.quality === 'blunder') { borderColor = 'border-red-900/50'; bgColor = 'bg-red-950/30 hover:bg-red-900/20'; textColor = 'text-red-400'; }
     else if (res.quality === 'mistake') { borderColor = 'border-orange-900/50'; bgColor = 'bg-orange-950/30 hover:bg-orange-900/20'; textColor = 'text-orange-400'; }
     else { borderColor = 'border-yellow-900/50'; bgColor = 'bg-yellow-950/30 hover:bg-yellow-900/20'; textColor = 'text-yellow-400'; }
     const isSelected = selectedIndex === idx;
-
     const roundNum = Math.ceil(res.moveIndex / 2);
-
     return (
         <button onClick={() => onJump(idx, res.moveIndex)} className={`w-full px-2 py-2.5 rounded text-left border transition-all text-[11px] md:text-xs flex items-center justify-between gap-2 ${borderColor} ${bgColor} ${textColor} ${isSelected ? 'ring-1 ring-white/50 bg-opacity-70' : 'opacity-90'}`}>
             <span className="font-bold shrink-0 flex items-center gap-2">
