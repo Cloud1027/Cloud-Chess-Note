@@ -12,7 +12,7 @@ interface CloudPanelProps {
     onOpenAnalysis: () => void;
     isEnabled: boolean; // Controls Cloud State
     onToggleEnabled: (enabled: boolean) => void;
-    onEngineStatsUpdate?: (stats: EngineStats | null) => void;
+    isCompact?: boolean;
 }
 
 const CloudPanel: React.FC<CloudPanelProps> = ({
@@ -22,7 +22,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     onOpenAnalysis,
     isEnabled,
     onToggleEnabled,
-    onEngineStatsUpdate
+    onEngineStatsUpdate,
+    isCompact = false
 }) => {
     const [mode, setMode] = useState<'cloud' | 'local'>('cloud');
     const [loading, setLoading] = useState(false);
@@ -34,7 +35,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
     const engineRef = useRef<LocalEngine | null>(null);
 
-    // Initialize Engine on first switch to local
+    // Initialize Engine on first switch to local or if compact mode defaults to local? 
+    // Actually compact mode should probably default to user preference, but let's stick to state.
     useEffect(() => {
         if (mode === 'local' && !engineRef.current) {
             const initEngine = async () => {
@@ -55,12 +57,9 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                 onEngineStatsUpdate?.(stats);
             });
         }
-        // Cleanup when unmounting or stopping or changing FEN
         return () => {
             if (mode === 'local' && isLocalAnalyzing && engineRef.current) {
                 // engineRef.current.stopAnalysis(); 
-                // Don't stop immediately on FEN change to allow smooth transition, 
-                // but strictly speaking 'startAnalysis' calls 'stop' internally.
             }
         };
     }, [currentFen, mode, isLocalAnalyzing, engineReady]);
@@ -69,7 +68,6 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         if (isLocalAnalyzing) {
             engineRef.current?.stopAnalysis();
             setIsLocalAnalyzing(false);
-            // setEngineStats(null); // Keep stats on stop
         } else {
             setIsLocalAnalyzing(true);
         }
@@ -110,6 +108,98 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         if (score < -100) return 'text-green-400 font-bold';
         return 'text-zinc-400';
     };
+
+    // Compact Mode Rendering
+    if (isCompact) {
+        return (
+            <div className="flex flex-col h-full bg-zinc-900 border-t border-zinc-800 w-full overflow-hidden text-sm">
+                {/* Compact Toolbar */}
+                <div className="flex items-center justify-between p-2 bg-zinc-900 border-b border-zinc-800">
+                    <div className="flex gap-1 bg-zinc-800 p-0.5 rounded-lg">
+                        <button onClick={() => setMode('cloud')} className={`px-3 py-1 text-xs rounded-md ${mode === 'cloud' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-400'}`}>雲庫</button>
+                        <button onClick={() => setMode('local')} className={`px-3 py-1 text-xs rounded-md ${mode === 'local' ? 'bg-amber-900/50 text-amber-200 shadow' : 'text-zinc-400'}`}>引擎</button>
+                    </div>
+
+                    {mode === 'local' && (
+                        <button
+                            onClick={toggleLocalAnalysis}
+                            disabled={!engineReady}
+                            className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${isLocalAnalyzing ? 'bg-red-600/20 text-red-500' : 'bg-green-600/20 text-green-500'}`}
+                        >
+                            {isLocalAnalyzing ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
+                            {isLocalAnalyzing ? '停止' : '計算'}
+                        </button>
+                    )}
+                </div>
+
+                {/* Compact Content */}
+                <div className="flex-1 overflow-y-auto bg-zinc-950 p-2">
+                    {mode === 'cloud' ? (
+                        <div className="space-y-2">
+                            {!isEnabled ? (
+                                <button onClick={() => onToggleEnabled(true)} className="w-full py-2 bg-blue-600/20 text-blue-400 rounded border border-blue-600/50 text-xs font-bold">開啟雲庫連線</button>
+                            ) : loading ? (
+                                <div className="text-center text-zinc-500 text-xs py-2">查詢中...</div>
+                            ) : moves.length === 0 ? (
+                                <div className="text-center text-zinc-500 text-xs py-2">無資料</div>
+                            ) : (
+                                <table className="w-full text-xs">
+                                    <tbody>
+                                        {moves.slice(0, 5).map((m, i) => (
+                                            <tr key={i} onClick={() => onMoveClick(ucciToCoords(m.move)!)} className="border-b border-zinc-800/50 active:bg-zinc-800">
+                                                <td className="py-1.5 text-zinc-300 font-medium">{getMoveDisplayName(m.move)}</td>
+                                                <td className={`py-1.5 text-right ${getScoreColor(m.score)}`}>{m.score}</td>
+                                                <td className="py-1.5 text-right text-zinc-500">{m.winrate}%</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {/* Stats Row */}
+                            <div className="grid grid-cols-4 gap-1 text-center bg-zinc-900 rounded p-1">
+                                <div className="flex flex-col">
+                                    <span className="text-[9px] text-zinc-500">SCORE</span>
+                                    <span className={`font-mono font-bold text-sm ${engineStats ? getScoreColor(engineStats.score) : 'text-zinc-600'}`}>
+                                        {engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : engineStats?.score || 0}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[9px] text-zinc-500">DEPTH</span>
+                                    <span className="font-mono font-bold text-sm text-amber-500">{engineStats?.depth || 0}</span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[9px] text-zinc-500">TIME</span>
+                                    <span className="font-mono text-sm text-zinc-400">{engineStats ? (engineStats.time / 1000).toFixed(1) + 's' : '0s'}</span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[9px] text-zinc-500">NPS</span>
+                                    <span className="font-mono text-sm text-zinc-400">{engineStats ? (engineStats.nps / 1000).toFixed(0) + 'k' : '0'}</span>
+                                </div>
+                            </div>
+
+                            {/* PV Move */}
+                            {engineStats?.bestMove && (
+                                <div className="bg-zinc-900 border border-zinc-800 rounded p-2 flex items-center justify-between">
+                                    <span className="text-amber-400 font-bold text-lg">{getMoveDisplayName(engineStats.bestMove)}</span>
+                                    <button onClick={() => onMoveClick(ucciToCoords(engineStats.bestMove)!)} className="px-3 py-1 bg-zinc-800 text-xs rounded border border-zinc-700">走這步</button>
+                                </div>
+                            )}
+
+                            {/* PV Line */}
+                            {engineStats?.pv && (
+                                <div className="text-xs text-zinc-500 break-words leading-relaxed px-1">
+                                    {getChineseNotationForPV(currentFen, engineStats.pv).slice(1).join(' ')}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-zinc-900 border-zinc-800 w-full overflow-hidden">

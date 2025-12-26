@@ -382,7 +382,16 @@ const App: React.FC = () => {
                     />
                 }
                 controls={
-                    memConfig.active ? (
+                    mobileTab === 'cloud' ? (
+                        <CloudPanel
+                            currentFen={currentNode.fen} currentBoard={currentNode.boardState}
+                            onMoveClick={m => { handleCloudMove(m); }}
+                            onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
+                            isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
+                            onEngineStatsUpdate={setEngineStats}
+                            isCompact={true}
+                        />
+                    ) : memConfig.active ? (
                         <div className="flex gap-4 p-4 bg-zinc-900 border-t border-zinc-800 justify-center">
                             <button
                                 onClick={handleHint}
@@ -431,26 +440,16 @@ const App: React.FC = () => {
                             />
                         )}
 
-                        {(mobileTab === 'moves' || mobileTab === 'cloud') && (
+                        {(mobileTab === 'moves') && (
                             <div className="fixed inset-0 z-[60] bg-zinc-950 flex flex-col xl:hidden">
                                 <div className="flex items-center justify-between px-4 h-14 bg-zinc-900 border-b border-zinc-800 shrink-0">
                                     <div className="flex gap-2 bg-zinc-800 p-1 rounded-lg">
                                         <button onClick={() => setMobileTab('moves')} className={`px-4 py-1 rounded-md text-sm transition-all ${mobileTab === 'moves' ? 'bg-zinc-700 text-white' : 'text-zinc-400'}`}>招法</button>
-                                        <button onClick={() => setMobileTab('cloud')} className={`px-4 py-1 rounded-md text-sm transition-all ${mobileTab === 'cloud' ? 'bg-zinc-700 text-white' : 'text-zinc-400'}`}>雲庫</button>
                                     </div>
                                     <button onClick={() => setMobileTab('none')} className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400"><X size={20} /></button>
                                 </div>
                                 <div className="flex-1 overflow-hidden relative bg-zinc-950">
-                                    {mobileTab === 'moves' ? (
-                                        <MoveListPanel movePath={activePath} currentNode={currentNode} rootNode={rootNode} onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); setMobileTab('none'); }} onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode} onReorder={reorderChildren} onLinkFen={linkMovesByFen} />
-                                    ) : (
-                                        <CloudPanel
-                                            currentFen={currentNode.fen} currentBoard={currentNode.boardState}
-                                            onMoveClick={m => { handleCloudMove(m); setMobileTab('none'); }}
-                                            onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
-                                            isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
-                                        />
-                                    )}
+                                    <MoveListPanel movePath={activePath} currentNode={currentNode} rootNode={rootNode} onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); setMobileTab('none'); }} onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode} onReorder={reorderChildren} onLinkFen={linkMovesByFen} />
                                 </div>
                             </div>
                         )}
