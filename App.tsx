@@ -16,7 +16,7 @@ import GifExportModal from './components/GifExportModal';
 import TabManager from './components/TabManager';
 import MobileTabSwitcher from './components/MobileTabSwitcher';
 import { MemorizationSetupModal, MemorizationReportModal } from './components/MemorizationModals';
-import { X, List, Cloud, CheckCircle, AlertCircle, HelpCircle, Lightbulb, StopCircle, BookOpen, Layout } from 'lucide-react';
+import { X, List, Cloud, CheckCircle, AlertCircle, HelpCircle, Lightbulb, StopCircle, BookOpen, Layout, Cpu } from 'lucide-react';
 import { useMoveTree } from './hooks/useMoveTree';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { Point, AnalysisResult, GameMetadata, AppSettings, GameTab, MoveNode } from './types';
@@ -383,14 +383,29 @@ const App: React.FC = () => {
                 }
                 controls={
                     mobileTab === 'cloud' ? (
-                        <CloudPanel
-                            currentFen={currentNode.fen} currentBoard={currentNode.boardState}
-                            onMoveClick={m => { handleCloudMove(m); }}
-                            onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
-                            isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
-                            onEngineStatsUpdate={setEngineStats}
-                            isCompact={true}
-                        />
+                        <div className="h-[40vh] border-t border-zinc-800">
+                            <CloudPanel
+                                currentFen={currentNode.fen} currentBoard={currentNode.boardState}
+                                onMoveClick={m => { handleCloudMove(m); }}
+                                onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
+                                isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
+                                onEngineStatsUpdate={setEngineStats}
+                                isCompact={true}
+                                forcedMode="cloud"
+                            />
+                        </div>
+                    ) : mobileTab === 'engine' ? (
+                        <div className="h-[40vh] border-t border-zinc-800">
+                            <CloudPanel
+                                currentFen={currentNode.fen} currentBoard={currentNode.boardState}
+                                onMoveClick={m => { handleCloudMove(m); }}
+                                onOpenAnalysis={() => { setShowAnalysis(true); setMobileTab('none'); }}
+                                isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
+                                onEngineStatsUpdate={setEngineStats}
+                                isCompact={true}
+                                forcedMode="local"
+                            />
+                        </div>
                     ) : memConfig.active ? (
                         <div className="flex gap-4 p-4 bg-zinc-900 border-t border-zinc-800 justify-center">
                             <button
@@ -418,14 +433,17 @@ const App: React.FC = () => {
                     )
                 }
                 mobileTabs={
-                    <div className="grid grid-cols-3 gap-2 h-full">
-                        <button onClick={() => setMobileTab('moves')} className="bg-zinc-800 border border-zinc-700 rounded-lg flex items-center justify-center gap-2 text-zinc-300 active:bg-zinc-700">
+                    <div className="grid grid-cols-4 gap-2 h-full">
+                        <button onClick={() => setMobileTab(mobileTab === 'moves' ? 'none' : 'moves')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'moves' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
                             <List size={18} /> <span className="text-xs font-bold">招法</span>
                         </button>
-                        <button onClick={() => setMobileTab('cloud')} className="bg-zinc-800 border border-zinc-700 rounded-lg flex items-center justify-center gap-2 text-zinc-300 active:bg-zinc-700">
+                        <button onClick={() => setMobileTab(mobileTab === 'cloud' ? 'none' : 'cloud')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'cloud' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
                             <Cloud size={18} /> <span className="text-xs font-bold">雲庫</span>
                         </button>
-                        <button onClick={() => setMobileTab('tabs')} className="bg-zinc-800 border border-zinc-700 rounded-lg flex items-center justify-center gap-2 text-zinc-300 active:bg-zinc-700">
+                        <button onClick={() => setMobileTab(mobileTab === 'engine' ? 'none' : 'engine')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'engine' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                            <Cpu size={18} /> <span className="text-xs font-bold">引擎</span>
+                        </button>
+                        <button onClick={() => setMobileTab(mobileTab === 'tabs' ? 'none' : 'tabs')} className={`border border-zinc-700 rounded-lg flex items-center justify-center gap-2 transition-all ${mobileTab === 'tabs' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
                             <Layout size={18} /> <span className="text-xs font-bold">分頁 ({tabs.length})</span>
                         </button>
                     </div>

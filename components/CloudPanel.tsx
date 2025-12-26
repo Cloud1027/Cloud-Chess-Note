@@ -12,7 +12,9 @@ interface CloudPanelProps {
     onOpenAnalysis: () => void;
     isEnabled: boolean; // Controls Cloud State
     onToggleEnabled: (enabled: boolean) => void;
+    onEngineStatsUpdate?: (stats: EngineStats | null) => void;
     isCompact?: boolean;
+    forcedMode?: 'cloud' | 'local';
 }
 
 const CloudPanel: React.FC<CloudPanelProps> = ({
@@ -23,9 +25,15 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     isEnabled,
     onToggleEnabled,
     onEngineStatsUpdate,
-    isCompact = false
+    isCompact = false,
+    forcedMode
 }) => {
     const [mode, setMode] = useState<'cloud' | 'local'>('cloud');
+
+    // Sync external mode if provided
+    useEffect(() => {
+        if (forcedMode) setMode(forcedMode);
+    }, [forcedMode]);
     const [loading, setLoading] = useState(false);
     const [moves, setMoves] = useState<CloudMove[]>([]);
 
@@ -203,23 +211,25 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
 
     return (
         <div className="flex flex-col h-full bg-zinc-900 border-zinc-800 w-full overflow-hidden">
-            {/* Header & Tabs */}
-            <div className="bg-zinc-900 border-b border-zinc-800 shrink-0">
-                <div className="flex px-2 pt-2 gap-1">
-                    <button
-                        onClick={() => setMode('cloud')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'cloud' ? 'bg-zinc-800 text-blue-400 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
-                    >
-                        <Cloud size={14} /> 雲庫
-                    </button>
-                    <button
-                        onClick={() => setMode('local')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'local' ? 'bg-zinc-800 text-amber-400 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
-                    >
-                        <Cpu size={14} /> 本地引擎
-                    </button>
+            {/* Header & Tabs - Hidden in forced mode (Mobile Split View) */}
+            {!forcedMode && (
+                <div className="bg-zinc-900 border-b border-zinc-800 shrink-0">
+                    <div className="flex px-2 pt-2 gap-1">
+                        <button
+                            onClick={() => setMode('cloud')}
+                            className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'cloud' ? 'bg-zinc-800 text-blue-400 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
+                        >
+                            <Cloud size={14} /> 雲庫
+                        </button>
+                        <button
+                            onClick={() => setMode('local')}
+                            className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'local' ? 'bg-zinc-800 text-amber-400 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
+                        >
+                            <Cpu size={14} /> 本地引擎
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto bg-zinc-950 relative min-h-0">
