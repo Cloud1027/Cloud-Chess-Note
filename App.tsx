@@ -229,6 +229,11 @@ const App: React.FC = () => {
         }
     );
 
+    // Clear Engine Arrows/Stats when node changes or Engine is disabled
+    useEffect(() => {
+        setEngineStats(null);
+    }, [currentNode.id, isCloudEnabled]);
+
     // Compute Engine Arrows
     const engineBestMoves = React.useMemo(() => {
         if (!settings.showEngineArrows || !engineStats?.pv || engineStats.pv.length === 0) return [];

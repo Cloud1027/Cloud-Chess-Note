@@ -117,7 +117,15 @@ export const useAnalysis = (
             const playedCloudMove = cloudMoves.find(m => m.move === actualMoveUcci);
             const bestCloudMove = cloudMoves.length > 0 ? cloudMoves[0] : null;
 
-            const resultItem = calculateResult(currentNode, nextNode, playedCloudMove, bestCloudMove, i + 1, currentNode.turn === 'red');
+            // [RESTORED] Fix Zig-Zag: Convert Cloud "Side-to-Move" score to "Absolute (Red)" score.
+            // User confirmed Black * -1 is needed to align the lines.
+            const isRedTurn = currentNode.turn === 'red';
+            if (!isRedTurn) {
+                if (playedCloudMove) playedCloudMove.score *= -1;
+                if (bestCloudMove) bestCloudMove.score *= -1;
+            }
+
+            const resultItem = calculateResult(currentNode, nextNode, playedCloudMove, bestCloudMove, i + 1, isRedTurn);
 
             newResults.push(resultItem);
             setResults([...newResults]);
@@ -281,6 +289,7 @@ export const useAnalysis = (
         startCloudAnalysis,
         startLocalAnalysis,
         stopAnalysis,
-        writeAnnotations
+        writeAnnotations,
+        onJumpToStep
     };
 };
