@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2 } from 'lucide-react';
+import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Point, Piece, CloudMove } from '../types';
 import { getChineseNotation, ucciToCoords, fetchCloudBookData, getChineseNotationForPV } from '../lib/utils';
 import { LocalEngine, EngineStats } from '../lib/engine';
@@ -15,6 +15,9 @@ interface CloudPanelProps {
     onEngineStatsUpdate?: (stats: EngineStats | null) => void;
     isCompact?: boolean;
     forcedMode?: 'cloud' | 'local';
+    // Compact Navigation Props
+    onNavigate?: (direction: 'prev' | 'next') => void;
+    onMenu?: () => void;
 }
 
 const CloudPanel: React.FC<CloudPanelProps> = ({
@@ -26,7 +29,9 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     onToggleEnabled,
     onEngineStatsUpdate,
     isCompact = false,
-    forcedMode
+    forcedMode,
+    onNavigate,
+    onMenu
 }) => {
     const [mode, setMode] = useState<'cloud' | 'local'>('cloud');
 
@@ -111,7 +116,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         if (isEnabled && mode === 'cloud') loadData(currentFen);
     }, [currentFen, isEnabled, mode]);
 
-    const getScoreColor = (score: number) => {
+    const getScoreColor = (score: number | string) => {
+        if (typeof score === 'string') return 'text-zinc-600'; // For '-' or other non-numeric scores
         if (score > 100) return 'text-red-400 font-bold';
         if (score < -100) return 'text-green-400 font-bold';
         return 'text-zinc-400';
@@ -121,27 +127,62 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     if (isCompact) {
         return (
             <div className="flex flex-col h-full bg-zinc-900 border-t border-zinc-800 w-full overflow-hidden text-sm">
-                {/* Compact Toolbar */}
-                <div className="flex items-center justify-between p-2 bg-zinc-900 border-b border-zinc-800">
-                    <div className="flex gap-1 bg-zinc-800 p-0.5 rounded-lg">
-                        <button onClick={() => setMode('cloud')} className={`px-3 py-1 text-xs rounded-md ${mode === 'cloud' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-400'}`}>雲庫</button>
-                        <button onClick={() => setMode('local')} className={`px-3 py-1 text-xs rounded-md ${mode === 'local' ? 'bg-amber-900/50 text-amber-200 shadow' : 'text-zinc-400'}`}>引擎</button>
+                {/* Compact Navigation Row (Replaces Header) */}
+                <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900 border-b border-zinc-800 shrink-0 h-10">
+                    {/* Left: Move Navigation */}
+                    <div className="flex gap-2">
+                        <button onClick={() => onNavigate?.('prev')} className="p-1 px-3 bg-zinc-800 rounded text-zinc-300 active:bg-zinc-700 active:scale-95 transition-transform">
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button onClick={() => onNavigate?.('next')} className="p-1 px-3 bg-zinc-800 rounded text-zinc-300 active:bg-zinc-700 active:scale-95 transition-transform">
+                            <ChevronRight size={16} />
+                        </button>
                     </div>
 
-                    {mode === 'local' && (
-                        <button
-                            onClick={toggleLocalAnalysis}
-                            disabled={!engineReady}
-                            className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${isLocalAnalyzing ? 'bg-red-600/20 text-red-500' : 'bg-green-600/20 text-green-500'}`}
-                        >
-                            {isLocalAnalyzing ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
-                            {isLocalAnalyzing ? '停止' : '計算'}
+                    {/* Right: Menu/Settings */}
+                    <div className="flex gap-2">
+                        {(mode === 'local') && (
+                            <button
+                                onClick={toggleLocalAnalysis}
+                                disabled={!engineReady}
+                                className={`flex items-center gap-1 px-3 py-1 rounded text-xs font-bold transition-colors ${isLocalAnalyzing ? 'bg-red-900/40 text-red-400 border border-red-900' : 'bg-green-900/40 text-green-400 border border-green-900'}`}
+                            >
+                                {isLocalAnalyzing ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
+                                {isLocalAnalyzing ? '停止' : '計算'}
+                            </button>
+                        )}
+                        <button onClick={onMenu} className="p-1 px-2 text-zinc-400 hover:text-zinc-200">
+                            <Settings2 size={16} />
                         </button>
-                    )}
+                    </div>
                 </div>
 
-                {/* Compact Content */}
-                <div className="flex-1 overflow-y-auto bg-zinc-950 p-2">
+                {/* Stats Row (Redesigned) */}
+                {(mode === 'local' || (mode === 'cloud' && moves.length > 0)) && (
+                    <div className="grid grid-cols-4 gap-1 p-2 bg-zinc-950 border-b border-zinc-800 text-xs text-center items-center shrink-0">
+                        <div className="flex flex-col border-r border-zinc-800">
+                            <span className="text-zinc-500 scale-90">SCORE</span>
+                            <span className={`font-mono font-bold ${getScoreColor(mode === 'local' ? (engineStats?.score || '-') : moves[0]?.score || '-')}`}>
+                                {mode === 'local' ? (engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : engineStats?.score || '-') : moves[0]?.score || '-'}
+                            </span>
+                        </div>
+                        <div className="flex flex-col border-r border-zinc-800">
+                            <span className="text-zinc-500 scale-90">DEPTH</span>
+                            <span className="text-amber-500 font-mono">{mode === 'local' ? (engineStats?.depth || '-') : moves[0]?.depth || '-'}</span>
+                        </div>
+                        <div className="flex flex-col border-r border-zinc-800">
+                            <span className="text-zinc-500 scale-90">TIME</span>
+                            <span className="text-zinc-300 font-mono">{mode === 'local' ? (engineStats ? (engineStats.time / 1000).toFixed(1) + 's' : '0s') : '-'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-zinc-500 scale-90">NPS</span>
+                            <span className="text-zinc-400 font-mono scale-90">{mode === 'local' ? (engineStats ? (engineStats.nps / 1000).toFixed(0) + 'k' : '0') : '-'}</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Compact Content (Moves List) */}
+                <div className="flex-1 overflow-y-auto bg-zinc-950 p-0">
                     {mode === 'cloud' ? (
                         <div className="space-y-2">
                             {!isEnabled ? (

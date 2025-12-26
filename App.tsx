@@ -383,7 +383,7 @@ const App: React.FC = () => {
                 }
                 controls={
                     mobileTab === 'cloud' ? (
-                        <div className="h-[40vh] border-t border-zinc-800">
+                        <div className="h-[30vh] border-t border-zinc-800">
                             <CloudPanel
                                 currentFen={currentNode.fen} currentBoard={currentNode.boardState}
                                 onMoveClick={m => { handleCloudMove(m); }}
@@ -392,10 +392,12 @@ const App: React.FC = () => {
                                 onEngineStatsUpdate={setEngineStats}
                                 isCompact={true}
                                 forcedMode="cloud"
+                                onNavigate={dir => { setShouldAnimate(dir === 'next'); navigate(dir); }}
+                                onMenu={() => setShowSettings(true)}
                             />
                         </div>
                     ) : mobileTab === 'engine' ? (
-                        <div className="h-[40vh] border-t border-zinc-800">
+                        <div className="h-[30vh] border-t border-zinc-800">
                             <CloudPanel
                                 currentFen={currentNode.fen} currentBoard={currentNode.boardState}
                                 onMoveClick={m => { handleCloudMove(m); }}
@@ -404,6 +406,8 @@ const App: React.FC = () => {
                                 onEngineStatsUpdate={setEngineStats}
                                 isCompact={true}
                                 forcedMode="local"
+                                onNavigate={dir => { setShouldAnimate(dir === 'next'); navigate(dir); }}
+                                onMenu={() => setShowSettings(true)}
                             />
                         </div>
                     ) : memConfig.active ? (
