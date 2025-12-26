@@ -117,16 +117,32 @@ export const useAnalysis = (
             const playedCloudMove = cloudMoves.find(m => m.move === actualMoveUcci);
             const bestCloudMove = cloudMoves.length > 0 ? cloudMoves[0] : null;
 
-            // [FIX Iter 6] Enforce "Red No Flip, Black Flip" logic.
-            // Evidence: Graph goes UP (Positive) when Red is Lose (Black Adv).
-            // So Black's Positive Score must be flipped to Negative (Red Perspective).
+            // [FIX Iter 7] Prevent Double-Flip Mutation.
+            // If playedMove === bestMove, mutating both would flip score twice (reverting it).
+            // Extract values and flip LOCAL variables only.
             const isRedTurn = currentNode.turn === 'red' || currentNode.turn === 'w';
+
+            let playedScore = playedCloudMove ? playedCloudMove.score : null;
+            let bestScore = bestCloudMove ? bestCloudMove.score : null;
+
             if (!isRedTurn) {
-                if (playedCloudMove) playedCloudMove.score *= -1;
-                if (bestCloudMove) bestCloudMove.score *= -1;
+                if (playedScore !== null) playedScore *= -1;
+                if (bestScore !== null) bestScore *= -1;
             }
 
-            const resultItem = calculateResult(currentNode, nextNode, playedCloudMove, bestCloudMove, i + 1, isRedTurn);
+            // Create Shadow Objects with fixed scores to pass to calculation
+            // (Or update calculateResult to accept scores directly? Let's spread.)
+            const playedMoveFixed = playedCloudMove ? { ...playedCloudMove, score: playedScore } : undefined;
+            const bestMoveFixed = bestCloudMove ? { ...bestCloudMove, score: bestScore } : undefined;
+
+            const resultItem = calculateResult(
+                currentNode,
+                nextNode,
+                playedMoveFixed as any,
+                bestMoveFixed as any,
+                i + 1,
+                isRedTurn
+            );
 
             newResults.push(resultItem);
             setResults([...newResults]);
