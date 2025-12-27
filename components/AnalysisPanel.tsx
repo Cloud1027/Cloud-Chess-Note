@@ -104,7 +104,41 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     const midZonePct = 0.8;
     const edgeZonePct = 0.1;
     const scoreThreshold = 500;
-    const scoreMaxVisual = 2000; // Cap for linear interpolation in edge zones
+    const scoreMaxVisual = 1000; // Cap for linear interpolation in edge zones
+
+    // Touch State
+    const touchStartDist = React.useRef<number>(0);
+    const touchStartScale = React.useRef<number>(1);
+
+    // Zoom/Pan helpers
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length === 2) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            touchStartDist.current = dist;
+            touchStartScale.current = scaleX;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            if (touchStartDist.current > 0) {
+                const delta = dist / touchStartDist.current;
+                const newScale = Math.max(1, Math.min(10, touchStartScale.current * delta));
+                setScaleX(newScale);
+
+                const maxOffset = Math.max(0, chartWidth * newScale - chartWidth);
+                setOffsetX(prev => Math.max(0, Math.min(prev, maxOffset)));
+            }
+        }
+    };
 
     const mapScoreToY = (redAdvScore: number) => {
         // Red Superiority (Positive) -> Top (Y=0)
@@ -168,28 +202,16 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
 
     const renderControls = () => (
         <div className="flex gap-2 items-center flex-wrap shrink-0">
-            {!isAnalyzing ? (
-                <>
-                    <button onClick={startCloudAnalysis} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-2 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1">
-                        <Cloud size={14} /> 雲庫
-                    </button>
-                    <button onClick={startLocalAnalysis} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white px-2 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1">
-                        <Cpu size={14} /> 引擎
-                    </button>
-                    <div className="flex items-center gap-1 bg-zinc-800 rounded px-2 py-1">
-                        <span className="text-[10px] text-zinc-400">深度</span>
-                        <input type="number" min="5" max="25" value={localDepth} onChange={e => setLocalDepth(Number(e.target.value))} className="w-8 bg-transparent text-center text-xs font-mono focus:outline-none text-amber-400" />
+            {/* Controls moved to Modal */}
+            {isAnalyzing && (
+                <div className="flex gap-2 w-full">
+                    <div className="text-xs text-zinc-400 flex items-center gap-1 bg-zinc-900 px-2 py-1 rounded border border-zinc-800 flex-1">
+                        {analysisMode === 'cloud' ? <Cloud size={14} className="text-blue-500" /> : <Cpu size={14} className="text-amber-500" />}
+                        <span className="truncate">{currentStepInfo}</span>
                     </div>
-                </>
-            ) : (
-                <div className="flex-1 flex gap-2 items-center p-1 bg-zinc-900 rounded border border-zinc-800">
-                    <button onClick={stopAnalysis} className="px-3 py-1 bg-red-600/20 text-red-500 border border-red-600/50 rounded text-xs animate-pulse font-bold flex items-center gap-1 hover:bg-red-600/30">
-                        <StopCircle size={14} /> 停止
+                    <button onClick={stopAnalysis} className="bg-red-900/50 hover:bg-red-900 text-red-200 px-3 py-1 rounded text-xs border border-red-800">
+                        <StopCircle size={14} />
                     </button>
-                    <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }} />
-                    </div>
-                    <span className="text-[10px] tabular-nums text-zinc-400 w-8 text-right bg-transparent">{Math.round(progress)}%</span>
                 </div>
             )}
         </div>
@@ -197,15 +219,17 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
 
     const renderChart = () => (
         <div
-            className="relative bg-zinc-950 rounded border border-zinc-800 select-none h-full flex flex-col justify-center overflow-hidden group"
+            className="relative bg-zinc-950 rounded border border-zinc-800 select-none h-full flex flex-col justify-center overflow-hidden group touch-none"
             ref={containerRef}
             onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
         >
             {results.length > 0 ? (
                 <>
                     {/* Legend / Info */}
                     <div className="absolute top-2 left-2 z-10 text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/50 px-1 rounded">
-                        滾輪縮放/平移 (x{scaleX.toFixed(1)})
+                        縮放(x{scaleX.toFixed(1)})
                     </div>
 
                     <div className="flex-1 w-full relative h-full">
@@ -243,11 +267,11 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                         </svg>
                     </div>          {/* Y-Axis Labels (Right Side) */}
                     <div className="absolute right-1 top-0 bottom-0 flex flex-col justify-between text-[9px] text-zinc-500 font-mono py-1 z-0 pointer-events-none text-right pr-1 border-r border-zinc-800/50">
-                        <span>+2000</span>
+                        <span>+1000</span>
                         <span>+500</span>
-                        <span>0</span>
+                        <span className="opacity-0">0</span>
                         <span>-500</span>
-                        <span>-2000</span>
+                        <span>-1000</span>
                     </div>
                 </>
             ) : (

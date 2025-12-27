@@ -10,6 +10,7 @@ import { AnalysisPanel } from './components/AnalysisPanel'; // [NEW]
 import InfoModal from './components/InfoModal';
 import BoardEditorModal from './components/BoardEditorModal';
 import SettingsModal from './components/SettingsModal';
+import { AnalysisSettingsModal } from './components/AnalysisSettingsModal';
 import ImportModal from './components/ImportModal';
 import ExportModal from './components/ExportModal';
 import GifExportModal from './components/GifExportModal';
@@ -45,6 +46,7 @@ const DEFAULT_METADATA: GameMetadata = {
 const App: React.FC = () => {
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [shouldAnimate, setShouldAnimate] = useState(true);
+    const [showAnalysisSettings, setShowAnalysisSettings] = useState(false); // [NEW]
 
     // Core Game Hook
     const {
@@ -493,7 +495,13 @@ const App: React.FC = () => {
                         <button onClick={() => setMobileTab(mobileTab === 'engine' ? 'none' : 'engine')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'engine' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
                             <Cpu size={16} /> <span className="text-[10px] font-bold">引擎</span>
                         </button>
-                        <button onClick={() => setMobileTab(mobileTab === 'analysis' ? 'none' : 'analysis')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'analysis' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+                        <button onClick={() => {
+                            if (mobileTab === 'analysis') {
+                                setShowAnalysisSettings(true);
+                            } else {
+                                setMobileTab('analysis');
+                            }
+                        }} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'analysis' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
                             <Activity size={16} /> <span className="text-[10px] font-bold">分析</span>
                         </button>
                         <button onClick={() => setMobileTab(mobileTab === 'tabs' ? 'none' : 'tabs')} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'tabs' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
@@ -503,6 +511,15 @@ const App: React.FC = () => {
                 }
                 mobileOverlay={
                     <>
+                        <AnalysisSettingsModal
+                            isOpen={showAnalysisSettings}
+                            onClose={() => setShowAnalysisSettings(false)}
+                            analysisMode={analysis.analysisMode}
+                            setAnalysisMode={analysis.setAnalysisMode}
+                            localDepth={analysis.localDepth}
+                            setLocalDepth={analysis.setLocalDepth}
+                        />
+
                         {isMobilePortrait && mobileTab === 'tabs' && (
                             <MobileTabSwitcher
                                 isOpen={true} onClose={() => setMobileTab('none')}

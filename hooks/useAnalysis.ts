@@ -309,6 +309,7 @@ export const useAnalysis = (
         startLocalAnalysis,
         stopAnalysis,
         writeAnnotations,
-        onJumpToStep
+        onJumpToStep,
+        setAnalysisMode
     };
 };
