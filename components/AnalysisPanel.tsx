@@ -56,9 +56,45 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
         if (onJumpToStep) onJumpToStep(moveIndex);
     };
 
+    // --- Zoom & Pan Logic ---
+    const [scaleX, setScaleX] = useState(1);
+    const [offsetX, setOffsetX] = useState(0);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    const chartWidth = 600; // Define here to be used in handlers
+
+    const handleWheel = (e: React.WheelEvent) => {
+        // Prevent default zoom if ctrl is pressed (browser zoom)
+        // But we want to capture wheel events
+        // Note: Check if target is inside our container
+        if (e.ctrlKey || e.metaKey) {
+            //e.preventDefault(); // React synthetic event might not support this fully for passive listeners, but let's try
+            // Zoom
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.max(1, Math.min(10, scaleX * delta));
+
+            // Adjust offset to keep center? For now simple zoom
+            setScaleX(newScale);
+
+            // Clone offset logic
+            const maxOffset = Math.max(0, chartWidth * newScale - chartWidth);
+            setOffsetX(prev => Math.max(0, Math.min(prev, maxOffset)));
+        } else {
+            // Pan
+            const newOffset = offsetX + e.deltaY;
+            const maxOffset = Math.max(0, chartWidth * scaleX - chartWidth);
+            setOffsetX(Math.max(0, Math.min(newOffset, maxOffset)));
+        }
+    };
+
+    const getX = (i: number, total: number) => {
+        const base = (i / (total - 1 || 1)) * chartWidth;
+        return base * scaleX;
+    };
+
     // --- Chart Logic (Non-Linear Scale) ---
     const chartHeight = isCompact ? 150 : 200;
-    const chartWidth = 600;
+    // const chartWidth = 600; // Moved up
     const padding = 0; // Full width
 
     // Scale Config (Symmetric Non-Linear)
@@ -117,7 +153,8 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
             const xIdx = (i / (results.filter(r => r.score !== null).length - 1 || 1)) * chartWidth;
 
             // Convert to Red Advantage Score
-            const redAdvScore = res.isRedTurn ? (res.score!) : -(res.score!);
+            // Note: useAnalysis results are ALREADY Red-Relative (Absolute)
+            const redAdvScore = res.score!;
 
             const y = mapScoreToY(redAdvScore);
             const cmd = i === 0 ? 'M' : 'L';
@@ -159,39 +196,52 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     );
 
     const renderChart = () => (
-        <div className="relative bg-zinc-950 rounded border border-zinc-800 select-none h-full flex flex-col justify-center overflow-hidden">
+        <div
+            className="relative bg-zinc-950 rounded border border-zinc-800 select-none h-full flex flex-col justify-center overflow-hidden group"
+            ref={containerRef}
+            onWheel={handleWheel}
+        >
             {results.length > 0 ? (
                 <>
-                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full overflow-visible preserve-3d absolute inset-0 z-10">
-                        {/* Zero Line - Always Center */}
-                        <line x1={0} y1={zeroY} x2={chartWidth} y2={zeroY} stroke="#444" strokeDasharray="4" strokeWidth="1" />
+                    {/* Legend / Info */}
+                    <div className="absolute top-2 left-2 z-10 text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/50 px-1 rounded">
+                        滾輪縮放/平移 (x{scaleX.toFixed(1)})
+                    </div>
 
-                        {/* Path */}
-                        <path d={pointsPath} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                    <div className="flex-1 w-full relative h-full">
+                        <svg width="100%" height="100%" className="overflow-hidden">
+                            <g transform={`translate(${-offsetX}, 0)`}>
+                                {/* Mid Line */}
+                                <line x1="0" y1={chartHeight / 2} x2={chartWidth * scaleX} y2={chartHeight / 2} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
 
-                        {/* Interactive Points */}
-                        {results.filter(r => r.score !== null).map((res, i, arr) => {
-                            const x = (i / (arr.length - 1 || 1)) * chartWidth;
-                            // Convert to Red Advantage
-                            // Note: useAnalysis results are ALREADY Red-Relative (Absolute)
-                            const redAdvScore = res.score!;
-                            const y = mapScoreToY(redAdvScore);
+                                {/* Chart Line */}
+                                <path d={pointsPath} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-lg" />
 
-                            // Highlight critical errors
-                            const isError = res.quality === 'blunder' || res.quality === 'mistake';
-                            const color = res.quality === 'blunder' ? '#ef4444' : (res.quality === 'mistake' ? '#f97316' : '#fbbf24');
-                            const isSelected = selectedIndex === i;
+                                {/* Interactive Points */}
+                                {results.filter(r => r.score !== null).map((res, i, arr) => {
+                                    const x = getX(i, arr.length);
+                                    // Convert to Red Advantage
+                                    // Note: useAnalysis results are ALREADY Red-Relative (Absolute)
+                                    const redAdvScore = res.score!;
+                                    const y = mapScoreToY(redAdvScore);
 
-                            return (
-                                <g key={i} onClick={() => handleJumpTo(i, res.moveIndex)} className="cursor-pointer group">
-                                    <rect x={x - 5} y={0} width={10} height={chartHeight} fill="transparent" />
-                                    <circle cx={x} cy={y} r={selectedIndex === i ? 4 : (isError ? 3 : 0)} fill={isError ? color : '#3b82f6'} className="transition-all duration-200" stroke={isSelected ? '#fff' : 'none'} strokeWidth={isSelected ? 1.5 : 0} />
-                                </g>
-                            );
-                        })}
-                    </svg>
+                                    // Highlight critical errors
+                                    const isError = res.quality === 'blunder' || res.quality === 'mistake';
+                                    const color = res.quality === 'blunder' ? '#ef4444' : (res.quality === 'mistake' ? '#f97316' : '#fbbf24');
+                                    const isSelected = selectedIndex === i;
 
-                    {/* Y-Axis Labels (Right Side) */}
+                                    return (
+                                        <g key={i} onClick={() => handleJumpTo(i, res.moveIndex)} className="cursor-pointer group">
+                                            <rect x={x - 10} y={0} width={20} height={chartHeight} fill="transparent" />
+                                            <circle cx={x} cy={y} r={selectedIndex === i ? 4 : (isError ? 3 : 2)} fill={isError ? color : '#3b82f6'} className="transition-all duration-200 opacity-0 group-hover:opacity-100" stroke={isSelected ? '#fff' : 'none'} strokeWidth={isSelected ? 1.5 : 0} />
+                                            {/* Always show selected or errors */}
+                                            {(isSelected || isError) && <circle cx={x} cy={y} r={selectedIndex === i ? 4 : 3} fill={isError ? color : '#3b82f6'} stroke={isSelected ? '#fff' : 'none'} strokeWidth={isSelected ? 1.5 : 0} />}
+                                        </g>
+                                    );
+                                })}
+                            </g>
+                        </svg>
+                    </div>          {/* Y-Axis Labels (Right Side) */}
                     <div className="absolute right-1 top-0 bottom-0 flex flex-col justify-between text-[9px] text-zinc-500 font-mono py-1 z-0 pointer-events-none text-right pr-1 border-r border-zinc-800/50">
                         <span>+2000</span>
                         <span>+500</span>
