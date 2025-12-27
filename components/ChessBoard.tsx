@@ -200,7 +200,9 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     useEffect(() => {
         setManualArrows([]);
         setHoveredVariationId(null);
-    }, [currentBoard]);
+        // Only clear selection if the ACTUAL position changed (FEN), not just board reference
+        setLocalState(prev => ({ ...prev, selectedPiece: null }));
+    }, [currentNode?.fen]); // Changed from currentBoard to currentNode.fen
 
     // Handle Props Update & Trigger Animations
     useEffect(() => {
@@ -269,7 +271,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                 ...prev,
                 board: currentBoard,
                 turn: currentTurn || 'red',
-                selectedPiece: null,
+                // selectedPiece: null, // Don't clear here! Let the FEN-watcher handle clearing.
                 lastMove: lastMove || null
             }));
 

@@ -116,11 +116,30 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         if (isEnabled && mode === 'cloud') loadData(currentFen);
     }, [currentFen, isEnabled, mode]);
 
-    const getScoreColor = (score: number | string) => {
-        if (typeof score === 'string') return 'text-zinc-600'; // For '-' or other non-numeric scores
-        if (score > 100) return 'text-red-400 font-bold';
-        if (score < -100) return 'text-green-400 font-bold';
-        return 'text-zinc-400';
+    const isRedTurn = currentFen.split(' ')[1] === 'w';
+
+    const getScoreDetails = (score: number | string) => {
+        if (typeof score !== 'number') return { text: score, color: 'text-zinc-600' };
+
+        // Logic:
+        // If Red Turn (w): + is Red Adv, - is Black Adv
+        // If Black Turn (b): + is Black Adv, - is Red Adv
+
+        let isRedAdv = false;
+        if (isRedTurn) {
+            isRedAdv = score > 0;
+        } else {
+            isRedAdv = score < 0;
+        }
+
+        const absScore = Math.abs(score);
+        const prefix = isRedAdv ? "紅優" : "黑優";
+        const text = `${prefix}${absScore}`;
+
+        // Color: Red Adv -> Red, Black Adv -> Green
+        const color = isRedAdv ? 'text-red-400 font-bold' : 'text-green-400 font-bold'; // Using Green for Black Adv as per convention in chinese apps often
+
+        return { text, color };
     };
 
     // Compact Mode Rendering
@@ -132,8 +151,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                     <div className="grid grid-cols-5 gap-1 p-2 bg-zinc-950 border-b border-zinc-800 text-xs text-center items-center shrink-0">
                         <div className="flex flex-col border-r border-zinc-800">
                             <span className="text-zinc-500 scale-75 origin-center">SCORE</span>
-                            <span className={`font-mono font-bold ${getScoreColor(mode === 'local' ? (engineStats?.score || '-') : moves[0]?.score || '-')}`}>
-                                {mode === 'local' ? (engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : engineStats?.score || '-') : moves[0]?.score || '-'}
+                            <span className={`font-mono font-bold ${getScoreDetails(mode === 'local' ? (engineStats?.score || '-') : moves[0]?.score || '-').color}`}>
+                                {getScoreDetails(mode === 'local' ? (engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : engineStats?.score || '-') : moves[0]?.score || '-').text}
                             </span>
                         </div>
                         <div className="flex flex-col border-r border-zinc-800">
@@ -168,9 +187,9 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                 {/* Compact Content (Moves List) */}
                 <div className="flex-1 overflow-y-auto bg-zinc-950 p-0">
                     {mode === 'cloud' ? (
-                        <div className="space-y-2">
+                        <div className="space-y-0 divide-y divide-zinc-800/50">
                             {!isEnabled ? (
-                                <button onClick={() => onToggleEnabled(true)} className="w-full py-2 bg-blue-600/20 text-blue-400 rounded border border-blue-600/50 text-xs font-bold">開啟雲庫連線</button>
+                                <div className="p-2"><button onClick={() => onToggleEnabled(true)} className="w-full py-2 bg-blue-600/20 text-blue-400 rounded border border-blue-600/50 text-xs font-bold">開啟雲庫連線</button></div>
                             ) : loading ? (
                                 <div className="text-center text-zinc-500 text-xs py-2">查詢中...</div>
                             ) : moves.length === 0 ? (
@@ -178,13 +197,16 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                             ) : (
                                 <table className="w-full text-xs">
                                     <tbody>
-                                        {moves.slice(0, 5).map((m, i) => (
-                                            <tr key={i} onClick={() => onMoveClick(ucciToCoords(m.move)!)} className="border-b border-zinc-800/50 active:bg-zinc-800">
-                                                <td className="py-1.5 text-zinc-300 font-medium pl-2">{getMoveDisplayName(m.move)}</td>
-                                                <td className={`py-1.5 text-right ${getScoreColor(m.score)}`}>{m.score}</td>
-                                                <td className="py-1.5 text-right text-zinc-500 pr-2">{m.winrate}%</td>
-                                            </tr>
-                                        ))}
+                                        {moves.map((m, i) => {
+                                            const details = getScoreDetails(m.score);
+                                            return (
+                                                <tr key={i} onClick={() => onMoveClick(ucciToCoords(m.move)!)} className="active:bg-zinc-800">
+                                                    <td className="py-2 text-zinc-300 font-medium pl-2">{getMoveDisplayName(m.move)}</td>
+                                                    <td className={`py-2 text-right ${details.color}`}>{details.text}</td>
+                                                    <td className="py-2 text-right text-zinc-500 pr-2">{m.winrate}%</td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             )}
@@ -296,17 +318,20 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-800/30">
-                                    {moves.map((m, idx) => (
-                                        <tr
-                                            key={idx}
-                                            onClick={() => onMoveClick(ucciToCoords(m.move)!)}
-                                            className="hover:bg-blue-900/10 cursor-pointer transition-colors"
-                                        >
-                                            <td className="px-3 py-2 font-bold text-zinc-300">{getMoveDisplayName(m.move)}</td>
-                                            <td className={`px-2 py-2 text-right font-mono ${getScoreColor(m.score)}`}>{m.score}</td>
-                                            <td className="px-2 py-2 text-right text-zinc-500 text-xs">{m.winrate}%</td>
-                                        </tr>
-                                    ))}
+                                    {moves.map((m, idx) => {
+                                        const details = getScoreDetails(m.score);
+                                        return (
+                                            <tr
+                                                key={idx}
+                                                onClick={() => onMoveClick(ucciToCoords(m.move)!)}
+                                                className="hover:bg-blue-900/10 cursor-pointer transition-colors"
+                                            >
+                                                <td className="px-3 py-2 font-bold text-zinc-300">{getMoveDisplayName(m.move)}</td>
+                                                <td className={`px-2 py-2 text-right font-mono ${details.color}`}>{details.text}</td>
+                                                <td className="px-2 py-2 text-right text-zinc-500 text-xs">{m.winrate}%</td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         )}
@@ -347,8 +372,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-zinc-900 rounded p-2 text-center border border-zinc-800">
                                         <div className="text-[10px] text-zinc-500 uppercase">Score</div>
-                                        <div className={`text-xl font-mono font-bold ${engineStats ? getScoreColor(engineStats.score) : 'text-zinc-600'}`}>
-                                            {engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : engineStats?.score || 0}
+                                        <div className={`text-xl font-mono font-bold ${engineStats ? getScoreDetails(engineStats.score).color : 'text-zinc-600'}`}>
+                                            {engineStats?.mate ? `M${Math.abs(engineStats.mate)}` : (engineStats ? getScoreDetails(engineStats.score).text : '-')}
                                         </div>
                                     </div>
                                     <div className="bg-zinc-900 rounded p-2 text-center border border-zinc-800">

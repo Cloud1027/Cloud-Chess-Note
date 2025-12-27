@@ -70,37 +70,42 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     const scoreThreshold = 500;
     const scoreMaxVisual = 2000; // Cap for linear interpolation in edge zones
 
-    const mapScoreToY = (score: number) => {
-        // Invert Y (0 is top)
-        // Mid Zone
-        if (score >= -scoreThreshold && score <= scoreThreshold) {
-            // Map [-500, 500] to [0.9H, 0.1H] (Remember 0 is Top)
-            // Val 500 -> 0.1H
-            // Val -500 -> 0.9H
-            // Ratio within range (0 to 1): (score - (-500)) / 1000
-            const ratio = (score + scoreThreshold) / (scoreThreshold * 2);
-            // Visual range: Top(0.1) to Bottom(0.9)
+    const mapScoreToY = (redAdvScore: number) => {
+        // Red Superiority (Positive) -> Top (Y=0)
+        // Black Superiority (Negative) -> Bottom (Y=Height)
+
+        // Mid Zone: [-500, 500]
+        if (redAdvScore >= -scoreThreshold && redAdvScore <= scoreThreshold) {
+            // Map [-500, 500] to [0.9H, 0.1H] (0 is Top)
+            // 500 -> 0.1H
+            // -500 -> 0.9H
+
+            // Normalize score (-500 to 500) to 0..1
+            // (score - min) / (max - min)
+            // (score + 500) / 1000
+            // ratio 1.0 -> 0.1H (Top)
+            // ratio 0.0 -> 0.9H (Bottom)
+
+            const ratio = (redAdvScore + scoreThreshold) / (scoreThreshold * 2);
             // Y = 0.9 - ratio * 0.8
             return chartHeight * (0.9 - ratio * 0.8);
         }
-        // Top Zone (> 500)
-        if (score > scoreThreshold) {
-            // Map [500, 2000] to [0.1H, 0.0H]
-            const cappedScore = Math.min(score, scoreMaxVisual);
+
+        // Top Zone (Red Adv > 500) -> [0.1H, 0.0H]
+        if (redAdvScore > scoreThreshold) {
+            const cappedScore = Math.min(redAdvScore, scoreMaxVisual);
             const ratio = (cappedScore - scoreThreshold) / (scoreMaxVisual - scoreThreshold);
-            // Y = 0.1 - ratio * 0.1
             return chartHeight * (0.1 - ratio * 0.1);
         }
-        // Bottom Zone (< -500)
-        if (score < -scoreThreshold) {
-            // Map [-2000, -500] to [1.0H, 0.9H]
-            const cappedScore = Math.max(score, -scoreMaxVisual);
-            // ratio 0 (-500) -> 1 (-2000)
-            // (score - (-500)) / (-2000 - (-500)) -> (-score - 500) / 1500 ??
-            // Let's do: absScore from 500 to 2000
+
+        // Bottom Zone (Black Adv > 500 => redAdvScore < -500) -> [0.9H, 1.0H]
+        if (redAdvScore < -scoreThreshold) {
+            const cappedScore = Math.max(redAdvScore, -scoreMaxVisual);
+            // -500 -> 0.9H
+            // -2000 -> 1.0H
+            // abs(s): 500 -> 2000
             const absScore = Math.abs(cappedScore);
             const ratio = (absScore - scoreThreshold) / (scoreMaxVisual - scoreThreshold);
-            // start at 0.9, go to 1.0
             return chartHeight * (0.9 + ratio * 0.1);
         }
         return chartHeight / 2;
@@ -109,14 +114,12 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     const pointsPath = results
         .filter(r => r.score !== null && !isNaN(r.score))
         .map((res, i) => {
-            const x = padding + (res.moveIndex / (Math.max(results[results.length - 1]?.moveIndex || 1, 1))) * (chartWidth - padding * 2);
-            // Note: using moveIndex for X-axis makes gaps for skipped moves visible, nice. 
-            // But original used array index. Let's switch to array index for consistent spacing if preferred, 
-            // but user wants "connected lines". Array index is safer for filling.
-            // Actually, let's stick to array index mapping for simplicity and guaranteed connection.
             const xIdx = (i / (results.filter(r => r.score !== null).length - 1 || 1)) * chartWidth;
 
-            const y = mapScoreToY(res.score!);
+            // Convert to Red Advantage Score
+            const redAdvScore = res.isRedTurn ? (res.score!) : -(res.score!);
+
+            const y = mapScoreToY(redAdvScore);
             const cmd = i === 0 ? 'M' : 'L';
             return `${cmd} ${xIdx},${y}`;
         }).join(" ");
@@ -169,7 +172,9 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                         {/* Interactive Points */}
                         {results.filter(r => r.score !== null).map((res, i, arr) => {
                             const x = (i / (arr.length - 1 || 1)) * chartWidth;
-                            const y = mapScoreToY(res.score!);
+                            // Convert to Red Advantage
+                            const redAdvScore = res.isRedTurn ? (res.score!) : -(res.score!);
+                            const y = mapScoreToY(redAdvScore);
 
                             // Highlight critical errors
                             const isError = res.quality === 'blunder' || res.quality === 'mistake';

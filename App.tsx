@@ -324,9 +324,30 @@ const App: React.FC = () => {
 
     const currentIndex = activePath.findIndex(n => n.id === currentNode.id);
 
+
+    // --- Responsive Layout Logic ---
+    const [isMobilePortrait, setIsMobilePortrait] = useState(false);
+
+    useEffect(() => {
+        const checkLayout = () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            // "Dimensions: Responsive" Logic: if width < height, treat as Mobile Portrait
+            // Also keep standard breakpoint for safety (e.g. if square but small)
+            const isNarrow = width < height || width < 1024;
+            setIsMobilePortrait(isNarrow);
+        };
+
+        checkLayout();
+        window.addEventListener('resize', checkLayout);
+        return () => window.removeEventListener('resize', checkLayout);
+    }, []);
+
+
     return (
         <>
             <MainLayout
+                isMobilePortrait={isMobilePortrait}
                 header={
                     <Header
                         title={metadata.title}
@@ -435,8 +456,8 @@ const App: React.FC = () => {
                                 totalSteps={activePath.length} disabled={memConfig.active}
                             />
 
-                            {/* Mobile Panels - Stacked Below */}
-                            {(mobileTab === 'cloud' || mobileTab === 'engine') && (
+                            {/* Mobile Panels - Stacked Below - Only show if isMobilePortrait */}
+                            {isMobilePortrait && (mobileTab === 'cloud' || mobileTab === 'engine') && (
                                 <div className="h-[25vh] border-t border-zinc-800 overflow-hidden">
                                     <CloudPanel
                                         currentFen={currentNode.fen} currentBoard={currentNode.boardState}
@@ -452,7 +473,7 @@ const App: React.FC = () => {
                                 </div>
                             )}
 
-                            {mobileTab === 'analysis' && (
+                            {isMobilePortrait && mobileTab === 'analysis' && (
                                 <div className="h-[25vh] border-t border-zinc-800 overflow-hidden bg-zinc-950 p-2 flex flex-col relative">
                                     <button onClick={() => setMobileTab('none')} className="absolute top-2 right-2 p-1 text-zinc-500 z-20"><X size={16} /></button>
                                     <AnalysisPanel {...analysis} isCompact={true} />
@@ -482,7 +503,7 @@ const App: React.FC = () => {
                 }
                 mobileOverlay={
                     <>
-                        {mobileTab === 'tabs' && (
+                        {isMobilePortrait && mobileTab === 'tabs' && (
                             <MobileTabSwitcher
                                 isOpen={true} onClose={() => setMobileTab('none')}
                                 tabs={tabs} activeTabId={activeTabId} onSwitch={handleSwitchTab}
@@ -490,8 +511,8 @@ const App: React.FC = () => {
                             />
                         )}
 
-                        {(mobileTab === 'moves') && (
-                            <div className="fixed inset-0 z-[60] bg-zinc-950 flex flex-col xl:hidden">
+                        {isMobilePortrait && (mobileTab === 'moves') && (
+                            <div className="fixed inset-0 z-[60] bg-zinc-950 flex flex-col">
                                 <div className="flex items-center justify-between px-4 h-14 bg-zinc-900 border-b border-zinc-800 shrink-0">
                                     <div className="flex gap-2 bg-zinc-800 p-1 rounded-lg">
                                         <button onClick={() => setMobileTab('moves')} className={`px-4 py-1 rounded-md text-sm transition-all ${mobileTab === 'moves' ? 'bg-zinc-700 text-white' : 'text-zinc-400'}`}>招法</button>

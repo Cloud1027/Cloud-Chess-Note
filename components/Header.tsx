@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     return (
-        <header className="w-full bg-zinc-900 border-b border-zinc-800 px-4 h-14 flex items-center justify-between shrink-0 z-50 relative">
+        <header className="w-full bg-zinc-900 border-b border-zinc-800 px-4 h-11 flex items-center justify-between shrink-0 z-50 relative">
             <div className="flex items-center gap-2 z-10">
                 <div className="w-8 h-8 bg-gradient-to-br from-amber-600 to-amber-800 rounded-lg flex items-center justify-center font-bold text-white shadow-inner">
                     弈

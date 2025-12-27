@@ -117,10 +117,13 @@ export const useAnalysis = (
             const playedCloudMove = cloudMoves.find(m => m.move === actualMoveUcci);
             const bestCloudMove = cloudMoves.length > 0 ? cloudMoves[0] : null;
 
-            // [FIX Iter 7] Prevent Double-Flip Mutation.
-            // If playedMove === bestMove, mutating both would flip score twice (reverting it).
-            // Extract values and flip LOCAL variables only.
-            const isRedTurn = currentNode.turn === 'red' || currentNode.turn === 'w';
+            // [FIX Iter 8] Derive Turn from FEN (Most Reliable).
+            // currentNode.turn might be unreliable if not populated correctly.
+            // FEN: "rnbakabnr/9/1c5c1/... w - - 0 1" -> 'w' is Red, 'b' is Black.
+            const fen = currentNode.fen;
+            const fenParts = fen.split(' ');
+            const activeColor = fenParts.length > 1 ? fenParts[1] : 'w';
+            const isRedTurn = activeColor === 'w' || activeColor === 'r';
 
             let playedScore = playedCloudMove ? playedCloudMove.score : null;
             let bestScore = bestCloudMove ? bestCloudMove.score : null;
@@ -130,8 +133,7 @@ export const useAnalysis = (
                 if (bestScore !== null) bestScore *= -1;
             }
 
-            // Create Shadow Objects with fixed scores to pass to calculation
-            // (Or update calculateResult to accept scores directly? Let's spread.)
+            // Create Shadow Objects
             const playedMoveFixed = playedCloudMove ? { ...playedCloudMove, score: playedScore } : undefined;
             const bestMoveFixed = bestCloudMove ? { ...bestCloudMove, score: bestScore } : undefined;
 

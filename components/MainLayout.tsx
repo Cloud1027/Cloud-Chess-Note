@@ -9,6 +9,7 @@ interface MainLayoutProps {
   controls: React.ReactNode;
   mobileTabs: React.ReactNode;
   mobileOverlay: React.ReactNode;
+  isMobilePortrait?: boolean; // New Prop for Dimension-based RWD
 }
 
 /**
@@ -22,7 +23,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   board,
   controls,
   mobileTabs,
-  mobileOverlay
+  mobileOverlay,
+  isMobilePortrait = false
 }) => {
   return (
     <div className="flex flex-col h-screen h-[100dvh] w-full bg-zinc-950 text-zinc-100 overflow-hidden">
@@ -32,10 +34,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       </div>
 
       <div className="flex flex-1 overflow-hidden relative">
-        {/* 左側雲庫 (桌面端顯示) */}
-        <aside className="hidden xl:flex w-80 2xl:w-96 flex-col border-r border-zinc-800 bg-zinc-900/50">
-          {leftSidebar}
-        </aside>
+        {/* 左側雲庫 (非 MobilePortrait 模式顯示) */}
+        {!isMobilePortrait && (
+          <aside className="hidden xl:flex w-80 2xl:w-96 flex-col border-r border-zinc-800 bg-zinc-900/50">
+            {leftSidebar}
+          </aside>
+        )}
 
         {/* 中央主區域 */}
         <main className="flex-1 flex flex-col bg-zinc-950 min-w-0 relative">
@@ -48,24 +52,28 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               </div>
 
               {/* 下方指令區域 - shrink-0 確保寬度不足時也不會消失 */}
-              <div className="flex flex-col shrink-0 mt-2 gap-2">
+              <div className="flex flex-col shrink-0 mt-1 gap-1">
                 <div className="w-full">
                   {controls}
                 </div>
 
                 {/* 移動端專屬分頁切換按鈕 (增加 padding 確保在部分 Android 設備上不被遮擋) */}
-                <div className="xl:hidden shrink-0 h-16 pb-4">
-                  {mobileTabs}
-                </div>
+                {isMobilePortrait && (
+                  <div className="shrink-0 h-12 pb-1">
+                    {mobileTabs}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </main>
 
-        {/* 右側招法 (桌面端顯示) */}
-        <aside className="hidden xl:flex w-80 2xl:w-96 flex-col border-l border-zinc-800 bg-zinc-900/50">
-          {rightSidebar}
-        </aside>
+        {/* 右側招法 (非 MobilePortrait 模式顯示) */}
+        {!isMobilePortrait && (
+          <aside className="hidden xl:flex w-80 2xl:w-96 flex-col border-l border-zinc-800 bg-zinc-900/50">
+            {rightSidebar}
+          </aside>
+        )}
 
         {/* 移動端全屏覆蓋層 (招法/雲庫) */}
         {mobileOverlay}
