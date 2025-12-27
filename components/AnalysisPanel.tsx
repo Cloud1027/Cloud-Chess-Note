@@ -173,7 +173,8 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                         {results.filter(r => r.score !== null).map((res, i, arr) => {
                             const x = (i / (arr.length - 1 || 1)) * chartWidth;
                             // Convert to Red Advantage
-                            const redAdvScore = res.isRedTurn ? (res.score!) : -(res.score!);
+                            // Note: useAnalysis results are ALREADY Red-Relative (Absolute)
+                            const redAdvScore = res.score!;
                             const y = mapScoreToY(redAdvScore);
 
                             // Highlight critical errors
