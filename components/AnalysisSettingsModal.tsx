@@ -8,6 +8,7 @@ interface AnalysisSettingsModalProps {
     setAnalysisMode: (mode: 'cloud' | 'local') => void;
     localDepth: number;
     setLocalDepth: (depth: number) => void;
+    onStart?: (mode: 'cloud' | 'local', depth: number) => void;
 }
 
 export const AnalysisSettingsModal: React.FC<AnalysisSettingsModalProps> = ({
@@ -16,8 +17,14 @@ export const AnalysisSettingsModal: React.FC<AnalysisSettingsModalProps> = ({
     analysisMode,
     setAnalysisMode,
     localDepth,
-    setLocalDepth
+    setLocalDepth,
+    onStart
 }) => {
+    const handleConfirm = () => {
+        if (onStart) onStart(analysisMode, localDepth);
+        onClose();
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -75,7 +82,7 @@ export const AnalysisSettingsModal: React.FC<AnalysisSettingsModalProps> = ({
 
                 <div className="p-4 border-t border-zinc-800 bg-zinc-900/50">
                     <button
-                        onClick={onClose}
+                        onClick={handleConfirm}
                         className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-900 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                     >
                         <Check size={18} /> 確定

@@ -26,9 +26,9 @@ interface ChessBoardProps {
     onNodeSelect?: (node: MoveNode) => void;
     engineBestMoves?: { from: Point; to: Point; color: 'red' | 'black' }[];
 
-    // Settings
     settings?: AppSettings;
     shouldAnimate?: boolean;
+    isLocked?: boolean;
 }
 
 // --- Logic helpers ---
@@ -143,7 +143,8 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     onNodeSelect,
     settings,
     shouldAnimate = true,
-    engineBestMoves
+    engineBestMoves,
+    isLocked = false
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -338,9 +339,38 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         });
 
         resizeObserver.observe(containerRef.current);
+
+        // Initial calculation
         updateDimensions();
 
-        return () => resizeObserver.disconnect();
+        // iOS WebKit needs multiple delayed recalculations because:
+        // 1. Flexbox layout may not be complete on first render
+        // 2. Safari reports wrong clientWidth initially
+        // Stage 1: Quick retry (50ms) - catches most layout delays
+        const timer1 = setTimeout(updateDimensions, 50);
+        // Stage 2: Medium retry (200ms) - catches slower devices
+        const timer2 = setTimeout(updateDimensions, 200);
+        // Stage 3: Final retry (500ms) - last resort for very slow layouts
+        const timer3 = setTimeout(updateDimensions, 500);
+
+        // iOS Safari fallback: orientation/resize events
+        const handleResize = () => {
+            // Clear any pending timers and recalculate with delays
+            updateDimensions();
+            setTimeout(updateDimensions, 100);
+            setTimeout(updateDimensions, 300);
+        };
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+
+        return () => {
+            resizeObserver.disconnect();
+            clearTimeout(timer1);
+            clearTimeout(timer2);
+            clearTimeout(timer3);
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+        };
     }, [settings?.boardSize]);
 
     // --- Transformation Logic ---
@@ -774,6 +804,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
         };
     }, [localState, dimensions, isFlipped, isMirrored, redName, blackName, mode, selectedCoord, settings, hintMove, markedSquares, engineBestMoves]);
     const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (isLocked) return;
         if (e.button !== 0) return;
         const rect = canvasRef.current!.getBoundingClientRect();
         const x = e.clientX - rect.left;

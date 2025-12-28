@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import { Split, Trash2, AtSign, MessageSquare, ChevronUp, ChevronDown, Link as LinkIcon } from 'lucide-react';
+import { Split, Trash2, AtSign, MessageSquare, ChevronUp, ChevronDown, Link as LinkIcon, Settings } from 'lucide-react';
 import { MoveNode } from '../types';
 
 interface MoveListPanelProps {
@@ -10,9 +10,11 @@ interface MoveListPanelProps {
     onJumpToMove: (node: MoveNode) => void;
     onUpdateComment: (id: string, comment: string) => void;
     onRequestDelete: (message: string) => void;
-    onRequestDeleteNode: (nodeId: string, message: string) => void; // 新增：刪除特定節點的回調
+    onRequestDeleteNode: (nodeId: string, message: string) => void;
     onReorder: (childId: string, direction: 'up' | 'down') => void;
     onLinkFen: () => void;
+    clipboardTags: string[];
+    onEditTags: () => void;
 }
 
 const MoveListPanel: React.FC<MoveListPanelProps> = ({
@@ -24,7 +26,9 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
     onRequestDelete,
     onRequestDeleteNode,
     onReorder,
-    onLinkFen
+    onLinkFen,
+    clipboardTags,
+    onEditTags
 }) => {
     const activeRowRef = useRef<HTMLTableRowElement>(null);
     const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -351,13 +355,20 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
                             onChange={(e) => onUpdateComment(currentNode.id, e.target.value)}
                         ></textarea>
                     </div>
-                    <div className="flex gap-2 mt-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
-                        {['正著', '劣著', '失子', '飛刀', '妙手'].map(tag => (
+                    <div className="flex gap-2 mt-2 overflow-x-auto pb-1 no-scrollbar shrink-0 items-center">
+                        {clipboardTags.map(tag => (
                             <button key={tag} onClick={() => onUpdateComment(currentNode.id, ((currentNode.comment || "") + " " + tag).trim())}
                                 className="text-xs px-2 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-zinc-400 whitespace-nowrap transition-colors">
                                 {tag}
                             </button>
                         ))}
+                        <button
+                            onClick={onEditTags}
+                            className="p-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-zinc-500 hover:text-zinc-300 transition-colors"
+                            title="自定義標籤"
+                        >
+                            <Settings size={14} />
+                        </button>
                     </div>
                 </div>
             </div>

@@ -13,6 +13,8 @@ import {
     CornerUpRight,
     FastForward,
     Rewind,
+    Cloud,
+    Book,
     X
 } from 'lucide-react';
 
@@ -25,6 +27,7 @@ interface ControlBarProps {
     currentIndex: number;
     totalSteps: number;
     disabled?: boolean;
+    onOpenCloud?: () => void;
 }
 
 const ControlBar: React.FC<ControlBarProps> = ({
@@ -35,7 +38,8 @@ const ControlBar: React.FC<ControlBarProps> = ({
     onMirror,
     currentIndex,
     totalSteps,
-    disabled = false
+    disabled = false,
+    onOpenCloud
 }) => {
     const [showJumpMenu, setShowJumpMenu] = useState(false);
     const [showSeekOverlay, setShowSeekOverlay] = useState(false);
@@ -115,7 +119,7 @@ const ControlBar: React.FC<ControlBarProps> = ({
             <div className="relative bg-zinc-900 border-t md:border-t-0 md:border md:rounded-xl border-zinc-700 shadow-lg overflow-hidden">
 
                 {/* 1. Main Control Buttons Grid */}
-                <div className={`grid grid-cols-7 gap-0.5 md:gap-2 px-1 py-1 md:py-3 transition-opacity duration-300 ${showSeekOverlay ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                <div className={`grid grid-cols-8 gap-0.5 md:gap-2 px-1 py-1 md:py-3 transition-opacity duration-300 ${showSeekOverlay ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                     {/* 1. Jump (Menu) */}
                     <button
                         className={`${btnClass} ${showJumpMenu ? 'bg-zinc-700 text-white border-zinc-500' : ''}`}
@@ -160,7 +164,7 @@ const ControlBar: React.FC<ControlBarProps> = ({
                         <span className={labelClass}>下一步</span>
                     </button>
 
-                    {/* 5. Locate (Slider) - Opens Overlay */}
+                    {/* 5. Locate (Slider) */}
                     <button
                         className={btnClass}
                         onClick={(e) => { e.stopPropagation(); if (!disabled) setShowSeekOverlay(true); }}
@@ -181,6 +185,17 @@ const ControlBar: React.FC<ControlBarProps> = ({
                     <button className={btnClass} onClick={onMirror} title="左右翻轉 (鏡像)">
                         <ArrowLeftRight size={iconSize} />
                         <span className={labelClass}>鏡像</span>
+                    </button>
+
+                    {/* 8. Cloud Book [MOVED & UPDATED] */}
+                    <button
+                        className={btnClass}
+                        onClick={(e) => { e.stopPropagation(); if (onOpenCloud) onOpenCloud(); }}
+                        title="雲端棋譜"
+                        disabled={disabled}
+                    >
+                        <Book size={iconSize} className="text-blue-400" />
+                        <span className={labelClass}>雲譜</span>
                     </button>
                 </div>
 

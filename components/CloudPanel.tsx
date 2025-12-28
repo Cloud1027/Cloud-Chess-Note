@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2 } from 'lucide-react';
+import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2, Wifi } from 'lucide-react';
 import { Point, Piece, CloudMove } from '../types';
 import { getChineseNotation, ucciToCoords, fetchCloudBookData, getChineseNotationForPV } from '../lib/utils';
 import { LocalEngine, EngineStats } from '../lib/engine';
@@ -250,10 +250,64 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                         </button>
                         <button
                             onClick={() => setMode('local')}
-                            className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'local' ? 'bg-zinc-800 text-amber-400 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
+                            className={`flex-1 py-2 text-xs font-bold rounded-t-lg flex items-center justify-center gap-2 border-t border-x ${mode === 'local' ? 'bg-zinc-800 text-amber-500 border-zinc-700' : 'bg-zinc-900 text-zinc-500 border-transparent hover:bg-zinc-800/50'}`}
                         >
-                            <Cpu size={14} /> 本地引擎
+                            <Cpu size={14} /> 引擎
                         </button>
+                    </div>
+
+                    {/* Toolbar Area */}
+                    <div className="px-2 py-2 bg-zinc-800/50 flex gap-2 border-b border-zinc-800">
+                        {mode === 'cloud' ? (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        if (!isEnabled) onToggleEnabled(true);
+                                        else loadData(currentFen);
+                                    }}
+                                    className={`flex-1 px-3 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 whitespace-nowrap ${!isEnabled
+                                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'
+                                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                                        }`}
+                                >
+                                    <Wifi size={14} className={loading && isEnabled ? 'animate-pulse' : ''} /> 連線
+                                </button>
+                                <button
+                                    onClick={() => onToggleEnabled(false)}
+                                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-red-400 border border-zinc-700 rounded text-xs flex items-center justify-center gap-2 whitespace-nowrap"
+                                    title="關閉連線"
+                                >
+                                    <WifiOff size={14} /> 關閉
+                                </button>
+                                <button
+                                    onClick={onOpenAnalysis}
+                                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-blue-400 border border-zinc-700 rounded text-xs flex items-center justify-center gap-2 whitespace-nowrap"
+                                    title="全局分析"
+                                >
+                                    <BarChart2 size={14} /> 全局分析
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={toggleLocalAnalysis}
+                                    className={`flex-1 px-3 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-2 border transition-all active:scale-95 whitespace-nowrap ${isLocalAnalyzing ? 'bg-red-900/40 text-red-200 border-red-800 hover:bg-red-900/60' : 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500'}`}
+                                >
+                                    {isLocalAnalyzing ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+                                    {isLocalAnalyzing ? '停止計算' : '開始計算'}
+                                </button>
+
+                                <button
+                                    onClick={onOpenAnalysis}
+                                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-blue-400 border border-zinc-700 rounded text-xs flex items-center justify-center gap-2 whitespace-nowrap"
+                                    title="全局分析"
+                                >
+                                    <BarChart2 size={14} /> 全局分析
+                                </button>
+
+
+                            </>
+                        )}
                     </div>
                 </div>
             )}
@@ -262,40 +316,6 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
             <div className="flex-1 overflow-y-auto bg-zinc-950 relative min-h-0">
                 {mode === 'cloud' ? (
                     <>
-                        <div className="p-3 border-b border-zinc-800 shrink-0 flex gap-2">
-                            {!isEnabled ? (
-                                <button
-                                    onClick={() => onToggleEnabled(true)}
-                                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded flex items-center justify-center gap-2 font-bold text-sm shadow-lg transition-all"
-                                >
-                                    <Activity size={16} /> 連線並分析
-                                </button>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => loadData(currentFen)}
-                                        disabled={loading}
-                                        className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded flex items-center justify-center gap-2 text-sm border border-zinc-700 transition-colors"
-                                    >
-                                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> 刷新
-                                    </button>
-                                    <button
-                                        onClick={() => onToggleEnabled(false)}
-                                        className="px-3 py-2 bg-zinc-800 hover:bg-red-900/40 text-zinc-400 hover:text-red-400 rounded border border-zinc-700 transition-colors"
-                                    >
-                                        <WifiOff size={16} />
-                                    </button>
-                                </>
-                            )}
-                            <button
-                                onClick={onOpenAnalysis}
-                                className="px-3 py-2 bg-zinc-800 hover:bg-indigo-900/40 text-zinc-300 hover:text-indigo-300 rounded border border-zinc-700 transition-colors"
-                                title="全盤分析"
-                            >
-                                <BarChart2 size={16} />
-                            </button>
-                        </div>
-
                         {!isEnabled ? (
                             <div className="h-full flex flex-col items-center justify-center p-8 text-center gap-4 opacity-50">
                                 <Cloud size={48} className="text-zinc-700" />
@@ -339,22 +359,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
                 ) : (
                     // Local Engine UI
                     <div className="flex flex-col h-full">
-                        <div className="p-3 border-b border-zinc-800 shrink-0 flex gap-2">
-                            <button
-                                onClick={toggleLocalAnalysis}
-                                disabled={!engineReady}
-                                className={`flex-1 py-2 rounded flex items-center justify-center gap-2 font-bold text-sm shadow-lg transition-all ${isLocalAnalyzing ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 disabled:cursor-wait'}`}
-                            >
-                                {isLocalAnalyzing ? <><Square size={14} fill="currentColor" /> 停止計算</> : <><Play size={16} fill="currentColor" /> 開始計算</>}
-                            </button>
-                            <button
-                                onClick={onOpenAnalysis}
-                                className="px-3 py-2 bg-zinc-800 hover:bg-indigo-900/40 text-zinc-300 hover:text-indigo-300 rounded border border-zinc-700 transition-colors"
-                                title="全盤分析 (AI)"
-                            >
-                                <BarChart2 size={16} />
-                            </button>
-                        </div>
+
 
                         {!engineReady ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-2">

@@ -83,8 +83,9 @@ export interface GameTab {
   rootNode: MoveNode;
   currentNodeId: string;
   metadata: GameMetadata;
-  colorTag?: 'red' | 'blue' | 'green' | 'yellow' | 'none'; // For visual organization
+  colorTag?: 'none' | 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'teal' | 'dark' | 'pink' | 'yellow' | 'coffee'; // 10 colors
   createdAt: number;
+  analysisResults?: AnalysisResult[]; // Per-tab analysis storage
 }
 
 // Memorization Types

@@ -27,7 +27,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   isMobilePortrait = false
 }) => {
   return (
-    <div className="flex flex-col h-screen h-[100dvh] w-full bg-zinc-950 text-zinc-100 overflow-hidden">
+    <div
+      className="flex flex-col w-full bg-zinc-950 text-zinc-100 overflow-hidden"
+      style={{ height: 'var(--app-height, 100vh)' }}
+    >
       {/* 頂部導航欄 (固定高度) */}
       <div className="shrink-0 z-50">
         {header}
@@ -42,12 +45,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         )}
 
         {/* 中央主區域 */}
-        <main className="flex-1 flex flex-col bg-zinc-950 min-w-0 relative">
-          <div className="flex-1 flex flex-col p-1 md:p-4 overflow-hidden">
+        <main className="flex-1 flex flex-col bg-zinc-950 min-w-0 relative w-full">
+          <div className="flex-1 flex flex-col p-1 md:p-4 overflow-hidden w-full">
             <div className="flex-1 flex flex-col max-w-[800px] mx-auto w-full min-h-0">
 
               {/* 棋盤區域 - flex-1 與 min-h-0 是防止擠壓的關鍵 */}
-              <div className="flex-1 flex items-center justify-center relative min-h-0 overflow-hidden">
+              {/* 加入 w-full 確保 iOS WebKit 正確計算寬度 */}
+              <div className="flex-1 flex items-center justify-center relative min-h-0 overflow-hidden w-full">
                 {board}
               </div>
 

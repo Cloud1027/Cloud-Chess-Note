@@ -11,6 +11,7 @@ interface HeaderProps {
     onOpenImport?: () => void;
     onOpenExport?: () => void;
     onOpenGif?: () => void;
+    onOpenCloud?: () => void;
     onTitleChange?: (newTitle: string) => void;
     isMemorizing?: boolean;
 }
@@ -18,7 +19,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({
     title,
     onOpenInfo, onOpenEdit, onOpenMemorize, onOpenSettings,
-    onOpenImport, onOpenExport, onOpenGif,
+    onOpenImport, onOpenExport, onOpenGif, onOpenCloud,
     onTitleChange,
     isMemorizing
 }) => {
@@ -131,7 +132,7 @@ const Header: React.FC<HeaderProps> = ({
                             <button onClick={() => { onOpenGif?.(); setIsFileMenuOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
                                 <ImageIcon size={14} /> 匯出 GIF
                             </button>
-                            <button className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-500 cursor-not-allowed text-left">
+                            <button onClick={() => { onOpenCloud?.(); setIsFileMenuOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
                                 <Cloud size={14} /> 上傳雲端
                             </button>
                         </div>
@@ -170,6 +171,9 @@ const Header: React.FC<HeaderProps> = ({
                     </button>
                     <button onClick={() => handleMobileClick(onOpenGif)} className="flex items-center gap-3 px-4 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors text-left" disabled={isMemorizing}>
                         <ImageIcon size={18} /> <span>匯出 GIF</span>
+                    </button>
+                    <button onClick={() => handleMobileClick(onOpenCloud)} className="flex items-center gap-3 px-4 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors text-left" disabled={isMemorizing}>
+                        <Cloud size={18} /> <span>上傳雲端</span>
                     </button>
 
                     <div className="h-px bg-zinc-800 my-1 mx-2"></div>

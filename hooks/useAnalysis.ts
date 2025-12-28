@@ -16,6 +16,7 @@ export const useAnalysis = (
     const [results, setResults] = useState<AnalysisResult[]>([]);
     const [progress, setProgress] = useState(0);
     const [currentStepInfo, setCurrentStepInfo] = useState('');
+    const [currentAnalyzingNodeId, setCurrentAnalyzingNodeId] = useState<string | null>(null);
 
     const abortControllerRef = useRef<AbortController | null>(null);
     const stopLocalRef = useRef(false);
@@ -68,9 +69,9 @@ export const useAnalysis = (
         }
 
         let quality: AnalysisResult['quality'] = 'good';
-        if (deviation > 500) quality = 'blunder';
-        else if (deviation > 200) quality = 'mistake';
-        else if (deviation > 50) quality = 'inaccuracy';
+        if (deviation >= 251) quality = 'blunder';      // 錯著: 251+
+        else if (deviation >= 151) quality = 'mistake'; // 失著: 151-250
+        else if (deviation >= 51) quality = 'inaccuracy'; // 緩著: 51-150
 
         return {
             nodeId: nextNode.id,
@@ -101,6 +102,7 @@ export const useAnalysis = (
 
             const currentNode = movePath[i];
             const nextNode = movePath[i + 1];
+            setCurrentAnalyzingNodeId(nextNode.id);
 
             setCurrentStepInfo(`正在查詢第 ${i + 1} 回合...`);
             const cloudMoves = await fetchCloudBookData(currentNode.fen);
@@ -157,7 +159,7 @@ export const useAnalysis = (
         setCurrentStepInfo('');
     };
 
-    const startLocalAnalysis = async () => {
+    const startLocalAnalysis = async (overrideDepth?: number) => {
         const engine = LocalEngine.getInstance();
         try {
             await engine.init();
@@ -179,9 +181,11 @@ export const useAnalysis = (
         const evals: number[] = [];
         const bestMoves: string[] = [];
 
+        const currentDepth = overrideDepth || localDepth;
+
         try {
             setCurrentStepInfo(`正在評估初始局面...`);
-            const initStats = await engine.analyzeFixedDepth(movePath[0].fen, localDepth);
+            const initStats = await engine.analyzeFixedDepth(movePath[0].fen, currentDepth);
             evals[0] = (movePath[0].turn === 'red') ? initStats.score : -initStats.score;
             bestMoves[0] = initStats.bestMove || '';
 
@@ -192,10 +196,11 @@ export const useAnalysis = (
                 const nextNode = movePath[i + 1];
 
                 setCurrentStepInfo(`正在分析第 ${i + 1} 手...`);
+                setCurrentAnalyzingNodeId(nextNode.id);
                 // Wait for Engine
                 // We need to ensure sequential execution. 
                 // analyzeFixedDepth is promise based.
-                const stats = await engine.analyzeFixedDepth(nextNode.fen, localDepth);
+                const stats = await engine.analyzeFixedDepth(nextNode.fen, currentDepth);
 
                 const isRedTurnAfter = nextNode.turn === 'red';
                 const redPerspectiveScore = isRedTurnAfter ? stats.score : -stats.score;
@@ -310,6 +315,7 @@ export const useAnalysis = (
         stopAnalysis,
         writeAnnotations,
         onJumpToStep,
-        setAnalysisMode
+        setAnalysisMode,
+        currentAnalyzingNodeId
     };
 };

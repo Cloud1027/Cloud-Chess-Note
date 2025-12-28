@@ -14,6 +14,7 @@ interface AnalysisPanelProps {
     stopAnalysis: () => void;
     writeAnnotations: () => void;
     onJumpToStep: (index: number) => void;
+    onJumpToNode?: (nodeId: string) => void; // New: jump by nodeId for variation support
     localDepth: number;
     setLocalDepth: (depth: number) => void;
     isCompact?: boolean;
@@ -33,7 +34,8 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     onJumpToStep,
     localDepth,
     setLocalDepth,
-    isCompact = false
+    isCompact = false,
+    onJumpToNode
 }) => {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [errorTab, setErrorTab] = useState<'red' | 'black'>('red');
@@ -51,134 +53,47 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
         }
     });
 
-    const handleJumpTo = (indexInResults: number, moveIndex: number) => {
+    // Jump using nodeId for proper variation support
+    const handleJumpTo = (indexInResults: number, nodeId: string) => {
         setSelectedIndex(indexInResults);
-        if (onJumpToStep) onJumpToStep(moveIndex);
-    };
-
-    // --- Zoom & Pan Logic ---
-    const [scaleX, setScaleX] = useState(1);
-    const [offsetX, setOffsetX] = useState(0);
-    const containerRef = React.useRef<HTMLDivElement>(null);
-
-    const chartWidth = 600; // Define here to be used in handlers
-
-    const handleWheel = (e: React.WheelEvent) => {
-        // Prevent default zoom if ctrl is pressed (browser zoom)
-        // But we want to capture wheel events
-        // Note: Check if target is inside our container
-        if (e.ctrlKey || e.metaKey) {
-            //e.preventDefault(); // React synthetic event might not support this fully for passive listeners, but let's try
-            // Zoom
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            const newScale = Math.max(1, Math.min(10, scaleX * delta));
-
-            // Adjust offset to keep center? For now simple zoom
-            setScaleX(newScale);
-
-            // Clone offset logic
-            const maxOffset = Math.max(0, chartWidth * newScale - chartWidth);
-            setOffsetX(prev => Math.max(0, Math.min(prev, maxOffset)));
-        } else {
-            // Pan
-            const newOffset = offsetX + e.deltaY;
-            const maxOffset = Math.max(0, chartWidth * scaleX - chartWidth);
-            setOffsetX(Math.max(0, Math.min(newOffset, maxOffset)));
+        if (onJumpToNode) {
+            onJumpToNode(nodeId); // Prefer nodeId for accurate jumping
         }
     };
+
+    // --- Y-Axis Scale Logic ---
+    const [yMax, setYMax] = useState<500 | 1000 | 2000>(500);
+
+    const toggleYScale = () => {
+        setYMax(prev => {
+            if (prev === 500) return 1000;
+            if (prev === 1000) return 2000;
+            return 500;
+        });
+    };
+
+    const chartWidth = 600; // Fixed width for coordinate calculation, SVG scales via viewBox/width=100%
+    const scaleX = 1; // No zoom
+    const offsetX = 0; // No pan
 
     const getX = (i: number, total: number) => {
-        const base = (i / (total - 1 || 1)) * chartWidth;
-        return base * scaleX;
+        return (i / (total - 1 || 1)) * chartWidth;
     };
 
-    // --- Chart Logic (Non-Linear Scale) ---
+    // --- Chart Logic ---
     const chartHeight = isCompact ? 150 : 200;
-    // const chartWidth = 600; // Moved up
-    const padding = 0; // Full width
 
-    // Scale Config (Symmetric Non-Linear)
-    // Zone 1 (Top 10%): 500 to 2000+
-    // Zone 2 (Mid 80%): -500 to 500
-    // Zone 3 (Bot 10%): -2000+ to -500
-    const midZonePct = 0.8;
-    const edgeZonePct = 0.1;
-    const scoreThreshold = 500;
-    const scoreMaxVisual = 1000; // Cap for linear interpolation in edge zones
-
-    // Touch State
-    const touchStartDist = React.useRef<number>(0);
-    const touchStartScale = React.useRef<number>(1);
-
-    // Zoom/Pan helpers
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.touches.length === 2) {
-            const dist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            touchStartDist.current = dist;
-            touchStartScale.current = scaleX;
-        }
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (e.touches.length === 2) {
-            e.preventDefault();
-            const dist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            if (touchStartDist.current > 0) {
-                const delta = dist / touchStartDist.current;
-                const newScale = Math.max(1, Math.min(10, touchStartScale.current * delta));
-                setScaleX(newScale);
-
-                const maxOffset = Math.max(0, chartWidth * newScale - chartWidth);
-                setOffsetX(prev => Math.max(0, Math.min(prev, maxOffset)));
-            }
-        }
-    };
-
-    const mapScoreToY = (redAdvScore: number) => {
-        // Red Superiority (Positive) -> Top (Y=0)
-        // Black Superiority (Negative) -> Bottom (Y=Height)
-
-        // Mid Zone: [-500, 500]
-        if (redAdvScore >= -scoreThreshold && redAdvScore <= scoreThreshold) {
-            // Map [-500, 500] to [0.9H, 0.1H] (0 is Top)
-            // 500 -> 0.1H
-            // -500 -> 0.9H
-
-            // Normalize score (-500 to 500) to 0..1
-            // (score - min) / (max - min)
-            // (score + 500) / 1000
-            // ratio 1.0 -> 0.1H (Top)
-            // ratio 0.0 -> 0.9H (Bottom)
-
-            const ratio = (redAdvScore + scoreThreshold) / (scoreThreshold * 2);
-            // Y = 0.9 - ratio * 0.8
-            return chartHeight * (0.9 - ratio * 0.8);
-        }
-
-        // Top Zone (Red Adv > 500) -> [0.1H, 0.0H]
-        if (redAdvScore > scoreThreshold) {
-            const cappedScore = Math.min(redAdvScore, scoreMaxVisual);
-            const ratio = (cappedScore - scoreThreshold) / (scoreMaxVisual - scoreThreshold);
-            return chartHeight * (0.1 - ratio * 0.1);
-        }
-
-        // Bottom Zone (Black Adv > 500 => redAdvScore < -500) -> [0.9H, 1.0H]
-        if (redAdvScore < -scoreThreshold) {
-            const cappedScore = Math.max(redAdvScore, -scoreMaxVisual);
-            // -500 -> 0.9H
-            // -2000 -> 1.0H
-            // abs(s): 500 -> 2000
-            const absScore = Math.abs(cappedScore);
-            const ratio = (absScore - scoreThreshold) / (scoreMaxVisual - scoreThreshold);
-            return chartHeight * (0.9 + ratio * 0.1);
-        }
-        return chartHeight / 2;
+    // Simple linear mapping: [-yMax, yMax] -> [chartHeight, 0]
+    // yMax (Red Advantage) -> top (Y=0)
+    // -yMax (Black Advantage) -> bottom (Y=chartHeight)
+    // 0 -> middle (Y=chartHeight/2)
+    const mapScoreToY = (score: number) => {
+        // Clamp score to [-yMax, yMax]
+        const clamped = Math.max(-yMax, Math.min(yMax, score));
+        // Normalize to [-1, 1]
+        const normalized = clamped / yMax;
+        // Map to [chartHeight, 0]: when normalized=1 (yMax), Y=0; when normalized=-1 (-yMax), Y=chartHeight
+        return chartHeight * (0.5 - normalized * 0.5);
     };
 
     const pointsPath = results
@@ -220,58 +135,83 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
     const renderChart = () => (
         <div
             className="relative bg-zinc-950 rounded border border-zinc-800 select-none h-full flex flex-col justify-center overflow-hidden group touch-none"
-            ref={containerRef}
-            onWheel={handleWheel}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
+        // Zoom removed
         >
             {results.length > 0 ? (
                 <>
-                    {/* Legend / Info */}
-                    <div className="absolute top-2 left-2 z-10 text-[10px] text-zinc-500 pointer-events-none bg-zinc-950/50 px-1 rounded">
-                        縮放(x{scaleX.toFixed(1)})
-                    </div>
+                    {/* Y-Scale Toggle Button */}
+                    <button
+                        onClick={toggleYScale}
+                        className="absolute top-2 left-2 z-10 text-[10px] text-zinc-400 bg-zinc-900/80 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700 transition-colors flex items-center gap-1 shadow-lg"
+                        title="切換分數顯示範圍"
+                    >
+                        <span>縮放:</span>
+                        <span className="font-bold text-zinc-200">±{yMax}</span>
+                    </button>
 
                     <div className="flex-1 w-full relative h-full">
-                        <svg width="100%" height="100%" className="overflow-hidden">
-                            <g transform={`translate(${-offsetX}, 0)`}>
+                        <svg width="100%" height="100%" className="overflow-visible" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
+                            <g>
                                 {/* Mid Line */}
-                                <line x1="0" y1={chartHeight / 2} x2={chartWidth * scaleX} y2={chartHeight / 2} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
+                                <line x1="0" y1={chartHeight / 2} x2={chartWidth} y2={chartHeight / 2} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
 
                                 {/* Chart Line */}
-                                <path d={pointsPath} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-lg" />
+                                <path d={pointsPath} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-lg" vectorEffect="non-scaling-stroke" />
 
                                 {/* Interactive Points */}
                                 {results.filter(r => r.score !== null).map((res, i, arr) => {
                                     const x = getX(i, arr.length);
-                                    // Convert to Red Advantage
-                                    // Note: useAnalysis results are ALREADY Red-Relative (Absolute)
-                                    const redAdvScore = res.score!;
-                                    const y = mapScoreToY(redAdvScore);
+                                    const y = mapScoreToY(res.score!);
 
-                                    // Highlight critical errors
-                                    const isError = res.quality === 'blunder' || res.quality === 'mistake';
-                                    const color = res.quality === 'blunder' ? '#ef4444' : (res.quality === 'mistake' ? '#f97316' : '#fbbf24');
+                                    // Error Colors: Purple=Blunder, Orange=Mistake, Silver=Inaccuracy
+                                    const isError = res.quality === 'blunder' || res.quality === 'mistake' || res.quality === 'inaccuracy';
+                                    let color = '#3b82f6'; // Default Blue
+                                    if (res.quality === 'blunder') color = '#a855f7'; // Purple
+                                    if (res.quality === 'mistake') color = '#f97316'; // Orange
+                                    if (res.quality === 'inaccuracy') color = '#94a3b8'; // Silver
+
                                     const isSelected = selectedIndex === i;
 
                                     return (
-                                        <g key={i} onClick={() => handleJumpTo(i, res.moveIndex)} className="cursor-pointer group">
-                                            <rect x={x - 10} y={0} width={20} height={chartHeight} fill="transparent" />
-                                            <circle cx={x} cy={y} r={selectedIndex === i ? 4 : (isError ? 3 : 2)} fill={isError ? color : '#3b82f6'} className="transition-all duration-200 opacity-0 group-hover:opacity-100" stroke={isSelected ? '#fff' : 'none'} strokeWidth={isSelected ? 1.5 : 0} />
-                                            {/* Always show selected or errors */}
-                                            {(isSelected || isError) && <circle cx={x} cy={y} r={selectedIndex === i ? 4 : 3} fill={isError ? color : '#3b82f6'} stroke={isSelected ? '#fff' : 'none'} strokeWidth={isSelected ? 1.5 : 0} />}
+                                        <g key={i} onClick={() => handleJumpTo(i, res.nodeId)} className="cursor-pointer group">
+                                            {/* Hit Area */}
+                                            <rect x={x - 5} y={0} width={10} height={chartHeight} fill="transparent" />
+
+                                            {/* Point */}
+                                            <circle
+                                                cx={x} cy={y}
+                                                r={isSelected ? 5 : (isError ? 3 : 1.5)}
+                                                fill={color}
+                                                className={`transition-all duration-200 ${isSelected ? 'breathing-glow' : ''} ${!isError && !isSelected ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+                                                stroke={isSelected ? '#fff' : 'rgba(0,0,0,0.5)'}
+                                                strokeWidth={isSelected ? 2 : (isError ? 1 : 0)}
+                                            />
+                                            {/* Breathing glow effect for selected point */}
+                                            {isSelected && (
+                                                <circle
+                                                    cx={x} cy={y}
+                                                    r={8}
+                                                    fill="none"
+                                                    stroke={color}
+                                                    strokeWidth={2}
+                                                    className="breathing-ring"
+                                                    opacity={0.6}
+                                                />
+                                            )}
                                         </g>
                                     );
                                 })}
                             </g>
                         </svg>
-                    </div>          {/* Y-Axis Labels (Right Side) */}
-                    <div className="absolute right-1 top-0 bottom-0 flex flex-col justify-between text-[9px] text-zinc-500 font-mono py-1 z-0 pointer-events-none text-right pr-1 border-r border-zinc-800/50">
-                        <span>+1000</span>
-                        <span>+500</span>
+                    </div>
+
+                    {/* Y-Axis Labels (Right Side) */}
+                    <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-between text-[9px] text-zinc-600 font-mono py-1 z-0 pointer-events-none text-right pr-1 border-r border-zinc-800/20 select-none bg-gradient-to-l from-zinc-900/50 to-transparent">
+                        <span>+{yMax}</span>
+                        <span>+{yMax / 2}</span>
                         <span className="opacity-0">0</span>
-                        <span>-500</span>
-                        <span>-1000</span>
+                        <span>-{yMax / 2}</span>
+                        <span>-{yMax}</span>
                     </div>
                 </>
             ) : (
@@ -368,19 +308,35 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
             <button onClick={writeAnnotations} className="py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-sm text-zinc-300 flex items-center justify-center gap-2 transition-colors">
                 <Edit3 size={16} /> 將分析結果寫入棋譜註釋
             </button>
+
+            {/* Breathing animation styles */}
+            <style>{`
+                @keyframes breathing-ring-animation {
+                    0%, 100% { transform: scale(1); opacity: 0.6; }
+                    50% { transform: scale(1.3); opacity: 0.2; }
+                }
+                .breathing-ring {
+                    animation: breathing-ring-animation 1.5s ease-in-out infinite;
+                    transform-origin: center;
+                    transform-box: fill-box;
+                }
+                .breathing-glow {
+                    filter: drop-shadow(0 0 3px currentColor);
+                }
+            `}</style>
         </div>
     );
 };
 
-const BadMoveItem: React.FC<{ res: AnalysisResult; idx: number; selectedIndex: number | null; onJump: (index: number, moveIndex: number) => void; }> = ({ res, idx, selectedIndex, onJump }) => {
+const BadMoveItem: React.FC<{ res: AnalysisResult; idx: number; selectedIndex: number | null; onJump: (index: number, nodeId: string) => void; }> = ({ res, idx, selectedIndex, onJump }) => {
     let borderColor = '', bgColor = '', textColor = '';
-    if (res.quality === 'blunder') { borderColor = 'border-red-900/50'; bgColor = 'bg-red-950/30 hover:bg-red-900/20'; textColor = 'text-red-400'; }
+    if (res.quality === 'blunder') { borderColor = 'border-purple-900/50'; bgColor = 'bg-purple-950/30 hover:bg-purple-900/20'; textColor = 'text-purple-400'; }
     else if (res.quality === 'mistake') { borderColor = 'border-orange-900/50'; bgColor = 'bg-orange-950/30 hover:bg-orange-900/20'; textColor = 'text-orange-400'; }
-    else { borderColor = 'border-yellow-900/50'; bgColor = 'bg-yellow-950/30 hover:bg-yellow-900/20'; textColor = 'text-yellow-400'; }
+    else { borderColor = 'border-zinc-700/50'; bgColor = 'bg-zinc-800/30 hover:bg-zinc-700/20'; textColor = 'text-zinc-400'; }
     const isSelected = selectedIndex === idx;
     const roundNum = Math.ceil(res.moveIndex / 2);
     return (
-        <button onClick={() => onJump(idx, res.moveIndex)} className={`w-full px-2 py-2.5 rounded text-left border transition-all text-[11px] md:text-xs flex items-center justify-between gap-2 ${borderColor} ${bgColor} ${textColor} ${isSelected ? 'ring-1 ring-white/50 bg-opacity-70' : 'opacity-90'}`}>
+        <button onClick={() => onJump(idx, res.nodeId)} className={`w-full px-2 py-2.5 rounded text-left border transition-all text-[11px] md:text-xs flex items-center justify-between gap-2 ${borderColor} ${bgColor} ${textColor} ${isSelected ? 'ring-1 ring-white/50 bg-opacity-70' : 'opacity-90'}`}>
             <span className="font-bold shrink-0 flex items-center gap-2">
                 <span className="opacity-60 font-mono w-6 text-right">{roundNum}</span>
                 <span>{res.moveNotation}</span>
@@ -400,9 +356,9 @@ const StatCard = ({ title, stats, isRed, compact = false }: { title: string, sta
             <span className="text-[10px] opacity-60">共 {Math.ceil(stats.total / 2)} 回合</span>
         </div>
         <div className="flex gap-2 mt-1">
-            <StatBadge label="錯" count={stats.blunder} color="bg-red-500/10 text-red-500 border-red-500/30" />
-            <StatBadge label="失" count={stats.mistake} color="bg-orange-500/10 text-orange-500 border-orange-500/30" />
-            <StatBadge label="緩" count={stats.inaccuracy} color="bg-yellow-500/10 text-yellow-500 border-yellow-500/30" />
+            <StatBadge label="錯" count={stats.blunder} color="bg-purple-500/10 text-purple-400 border-purple-500/30" />
+            <StatBadge label="失" count={stats.mistake} color="bg-orange-500/10 text-orange-400 border-orange-500/30" />
+            <StatBadge label="緩" count={stats.inaccuracy} color="bg-zinc-500/10 text-zinc-400 border-zinc-500/30" />
         </div>
     </div>
 );

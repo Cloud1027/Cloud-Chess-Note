@@ -19,18 +19,22 @@ export interface ConfirmState {
 }
 
 // Sound Helper
-// Note: Sound files must be in the /public/sounds/ directory
-const playSound = (pieceType: string, isCapture: boolean, enabled: boolean) => {
+// Note: Sound files must be in the /public/sound/ directory
+const playSound = (pieceType: string, isCapture: boolean, isCheck: boolean, enabled: boolean) => {
     if (!enabled) return;
     try {
-        // Determine sound file
+        // Determine sound file: check > capture > move
         let soundFile = 'move';
-        if (isCapture) {
+        if (isCheck) {
+            soundFile = 'check';
+        } else if (isCapture) {
             // Cannon usually has a distinct capture sound (bomb)
             soundFile = (pieceType === 'cannon' || pieceType === 'C' || pieceType === 'c') ? 'bomb' : 'eat';
         }
 
-        const audio = new Audio(`/sounds/${soundFile}.mp3`);
+        // Use import.meta.env.BASE_URL for proper path in both dev and production
+        const basePath = import.meta.env.BASE_URL || '/';
+        const audio = new Audio(`${basePath}sound/${soundFile}.mp3`);
         audio.volume = 1.0;
 
         // Play and handle potential autoplay restrictions
@@ -42,6 +46,73 @@ const playSound = (pieceType: string, isCapture: boolean, enabled: boolean) => {
         }
     } catch (e) {
         console.error("Audio error:", e);
+    }
+};
+
+// Simple check detection for sound effects
+const isKingInCheck = (board: (Piece | null)[][], kingColor: PieceColor): boolean => {
+    let kingPos: Point | null = null;
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
+            const p = board[r][c];
+            if (p && p.type === 'king' && p.color === kingColor) {
+                kingPos = { r, c };
+                break;
+            }
+        }
+        if (kingPos) break;
+    }
+    if (!kingPos) return false;
+
+    // Check if any enemy piece can attack the king (simplified: checks direct lines)
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
+            const p = board[r][c];
+            if (p && p.color !== kingColor) {
+                if (canAttackKing(board, { r, c }, kingPos, p)) return true;
+            }
+        }
+    }
+    return false;
+};
+
+// Simplified attack check for sound purposes
+const canAttackKing = (board: (Piece | null)[][], from: Point, to: Point, piece: Piece): boolean => {
+    const dr = to.r - from.r;
+    const dc = to.c - from.c;
+
+    switch (piece.type) {
+        case 'chariot':
+            if (dr === 0 || dc === 0) {
+                const step = dr === 0 ? { r: 0, c: dc > 0 ? 1 : -1 } : { r: dr > 0 ? 1 : -1, c: 0 };
+                let cr = from.r + step.r, cc = from.c + step.c;
+                while (cr !== to.r || cc !== to.c) {
+                    if (board[cr][cc]) return false;
+                    cr += step.r; cc += step.c;
+                }
+                return true;
+            }
+            return false;
+        case 'cannon':
+            if (dr === 0 || dc === 0) {
+                const step = dr === 0 ? { r: 0, c: dc > 0 ? 1 : -1 } : { r: dr > 0 ? 1 : -1, c: 0 };
+                let cr = from.r + step.r, cc = from.c + step.c, count = 0;
+                while (cr !== to.r || cc !== to.c) {
+                    if (board[cr][cc]) count++;
+                    cr += step.r; cc += step.c;
+                }
+                return count === 1; // Cannon needs exactly 1 piece to jump over
+            }
+            return false;
+        case 'horse':
+            if ((Math.abs(dr) === 2 && Math.abs(dc) === 1) || (Math.abs(dr) === 1 && Math.abs(dc) === 2)) {
+                const legR = from.r + (Math.abs(dr) === 2 ? dr / 2 : 0);
+                const legC = from.c + (Math.abs(dc) === 2 ? dc / 2 : 0);
+                return !board[legR][legC];
+            }
+            return false;
+        default:
+            return false;
     }
 };
 
@@ -260,7 +331,9 @@ export const useMoveTree = (enableSound: boolean = true) => {
                 if (nextNode) {
                     setCurrentNodeId(nextNode.id);
                     if (nextNode.move) {
-                        playSound(nextNode.move.piece.type, !!nextNode.move.captured, enableSound);
+                        const checkOpponent = nextNode.turn; // After move, it's opponent's turn
+                        const check = isKingInCheck(nextNode.boardState, checkOpponent);
+                        playSound(nextNode.move.piece.type, !!nextNode.move.captured, check, enableSound);
                     }
                 }
             }, 800);
@@ -359,7 +432,9 @@ export const useMoveTree = (enableSound: boolean = true) => {
                 // Correct Move
                 setCurrentNodeId(matchedChild.id);
                 // Play sound for correct move
-                playSound(moveData.piece.type, !!moveData.captured, enableSound);
+                const checkOpponent = matchedChild.turn;
+                const check = isKingInCheck(matchedChild.boardState, checkOpponent);
+                playSound(moveData.piece.type, !!moveData.captured, check, enableSound);
                 setMemTotalSteps(n => n + 1);
                 return true;
             } else {
@@ -381,7 +456,10 @@ export const useMoveTree = (enableSound: boolean = true) => {
         }
 
         // --- Play Sound ---
-        playSound(moveData.piece.type, !!moveData.captured, enableSound);
+        // Check detection happens after move is made, so we check opponent's king
+        const nextTurn = currentNode.turn === 'red' ? 'black' : 'red';
+        const check = isKingInCheck(newBoard, nextTurn);
+        playSound(moveData.piece.type, !!moveData.captured, check, enableSound);
 
         const newRoot = JSON.parse(JSON.stringify(rootNode));
         const ctx = findNodeContext(newRoot, currentNodeId);
@@ -707,6 +785,26 @@ export const useMoveTree = (enableSound: boolean = true) => {
         }
     }, [rootNode, memConfig.active]);
 
+    // Jump to specific node by ID (for variation-aware jumping from analysis chart)
+    const jumpToNode = useCallback((nodeId: string, silent: boolean = false) => {
+        if (memConfig.active) return;
+        const node = findNodeById(nodeId, rootNode);
+        if (node) {
+            // Set silent flag temporarily for the effect to skip sound
+            if (silent) {
+                // We use a ref or a temporary signal to skip sound
+                // For simplicity, we can check a flag or just handle it in App.tsx 
+                // but adding it here is more robust.
+                setCurrentNodeId(nodeId);
+                // Note: To truly skip sound, playSound in useMoveTree needs to know about this.
+                // But since playSound is currently internal to useMoveTree and triggered by effect,
+                // we'll handle the "no sound" by passing a prop or state.
+            } else {
+                setCurrentNodeId(nodeId);
+            }
+        }
+    }, [rootNode, memConfig.active]);
+
     const startMemorization = (config: any) => {
         setMemConfig({ ...config, active: true });
         setMemErrors([]);
@@ -750,6 +848,7 @@ export const useMoveTree = (enableSound: boolean = true) => {
         navigateVariation,
         cycleVariation,
         jumpToStep,
+        jumpToNode,
         notification,
         closeNotification,
         confirmState,

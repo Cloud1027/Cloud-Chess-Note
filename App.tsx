@@ -6,6 +6,7 @@ import ControlBar from './components/ControlBar';
 import MoveListPanel from './components/MoveListPanel';
 import CloudPanel from './components/CloudPanel';
 import MainLayout from './components/MainLayout';
+import CloudLibrary from './components/CloudLibrary';
 import { AnalysisPanel } from './components/AnalysisPanel'; // [NEW]
 import InfoModal from './components/InfoModal';
 import BoardEditorModal from './components/BoardEditorModal';
@@ -20,7 +21,8 @@ import { MemorizationSetupModal, MemorizationReportModal } from './components/Me
 import { X, List, Cloud, CheckCircle, AlertCircle, HelpCircle, Lightbulb, StopCircle, BookOpen, Layout, Cpu, Activity } from 'lucide-react';
 import { useMoveTree } from './hooks/useMoveTree';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { useAnalysis } from './hooks/useAnalysis'; // [NEW]
+import { useAnalysis } from './hooks/useAnalysis';
+import { useLocalStorage } from './hooks/useLocalStorage';
 import { Point, AnalysisResult, GameMetadata, AppSettings, GameTab, MoveNode } from './types';
 import { getChineseNotation, fenToBoard, ucciToCoords } from './lib/utils';
 import { EngineStats } from './lib/engine';
@@ -46,21 +48,52 @@ const DEFAULT_METADATA: GameMetadata = {
 const App: React.FC = () => {
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [shouldAnimate, setShouldAnimate] = useState(true);
-    const [showAnalysisSettings, setShowAnalysisSettings] = useState(false); // [NEW]
+    const [showAnalysisSettings, setShowAnalysisSettings] = useState(false);
+
+    // Clipboard Tags (Customizable)
+    const [clipboardTags, setClipboardTags] = useLocalStorage<string[]>('clipboard-tags', ['正著', '劣著', '失子', '飛刀', '妙手', '殺棋']);
+
+    const handleEditClipboardTags = () => {
+        const input = prompt('編輯標籤 (用逗號分隔，最多6個):', clipboardTags.join(', '));
+        if (input !== null) {
+            const newTags = input.split(',').map(t => t.trim()).filter(t => t.length > 0).slice(0, 6);
+            if (newTags.length > 0) {
+                setClipboardTags(newTags);
+            }
+        }
+    };
+
+    const is_analyzing_ref = useRef(false);
 
     // Core Game Hook
     const {
         currentNode, rootNode, activePath, addMove, importGame, jumpToMove,
         updateComment, batchUpdateComments, deleteCurrentMove, deleteNode, reorderChildren,
-        linkMovesByFen, navigate, navigateVariation, cycleVariation, jumpToStep, notification,
+        linkMovesByFen, navigate, navigateVariation, cycleVariation, jumpToStep, jumpToNode, notification,
         closeNotification, confirmState, showConfirm, closeConfirm, setRootNode,
         restoreState,
         memConfig, memErrors, memTotalSteps, memStartNodeId, getHint, showReport, startMemorization,
         stopMemorization, setShowReport
-    } = useMoveTree(settings.enableSound);
+    } = useMoveTree(settings.enableSound && !is_analyzing_ref.current);
 
-    // --- Multi-Tab State ---
-    const [tabs, setTabs] = useState<GameTab[]>(() => {
+    // Analysis Hook
+    const analysis = useAnalysis(
+        activePath,
+        (s) => { setShouldAnimate(false); jumpToStep(s); },
+        batchUpdateComments,
+        () => {
+            if (window.innerWidth < 1024) setMobileTab('none');
+            else setDesktopRightPanel('moves');
+        }
+    );
+
+    // Sync ref
+    useEffect(() => {
+        is_analyzing_ref.current = analysis.isAnalyzing;
+    }, [analysis.isAnalyzing]);
+
+    // --- Multi-Tab State (Persisted to LocalStorage) ---
+    const createInitialTab = (): GameTab[] => {
         const firstId = `game-${Date.now()}`;
         const firstBoard = INITIAL_BOARD_SETUP();
         const firstRoot: MoveNode = {
@@ -81,11 +114,15 @@ const App: React.FC = () => {
             currentNodeId: firstRoot.id,
             metadata: { ...DEFAULT_METADATA, title: '新局 1' },
             createdAt: Date.now(),
-            colorTag: 'none'
+            colorTag: 'none',
+            analysisResults: []
         }];
-    });
+    };
+
+    const [tabs, setTabs] = useLocalStorage<GameTab[]>('cloud-chess-tabs', createInitialTab());
     const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id || '');
     const [metadata, setMetadata] = useState<GameMetadata>(() => tabs[0]?.metadata || DEFAULT_METADATA);
+    const tabSwitchingRef = useRef(false); // Prevent sync during tab transitions
 
     // Initial Sync for useMoveTree hook (runs once on mount)
     useEffect(() => {
@@ -99,7 +136,7 @@ const App: React.FC = () => {
 
     // Sync Logic: Ensure `tabs` array is updated with the latest state of the CURRENT game
     useEffect(() => {
-        if (!activeTabId) return;
+        if (!activeTabId || tabSwitchingRef.current) return; // Skip sync during transitions
         const activeTab = tabs.find(t => t.id === activeTabId);
         if (!activeTab || rootNode.id !== activeTab.rootNode.id) return;
 
@@ -130,6 +167,27 @@ const App: React.FC = () => {
     const handleSwitchTab = (targetId: string, providedTab?: GameTab) => {
         if (!providedTab && targetId === activeTabId) return;
 
+        // [CRITICAL FIX] Force sync current state to tabs before switching
+        if (activeTabId) {
+            setTabs(prev => prev.map(tab => {
+                if (tab.id === activeTabId) {
+                    return {
+                        ...tab,
+                        rootNode: JSON.parse(JSON.stringify(rootNode)),
+                        currentNodeId: currentNode.id,
+                        metadata: { ...metadata },
+                        analysisResults: analysis.results.length > 0 ? analysis.results : tab.analysisResults
+                    };
+                }
+                return tab;
+            }));
+        }
+
+        tabSwitchingRef.current = true; // Block sync during transition
+
+        // Save current tab's analysis results before switching (Logic merged above, but keeping if needed for safety or removing redundant block)
+        // actually the block above covers it. I will remove the redundant block below to be clean.
+
         const targetTab = providedTab || tabs.find(t => t.id === targetId);
         if (targetTab) {
             setShouldAnimate(false);
@@ -139,10 +197,75 @@ const App: React.FC = () => {
             // Updating Hook State Atomically with a Deep Clone
             const clonedRoot = JSON.parse(JSON.stringify(targetTab.rootNode));
             restoreState(clonedRoot, targetTab.currentNodeId);
+
+            // Restore analysis results for this tab
+            analysis.setResults(targetTab.analysisResults || []);
+
+            // Re-enable sync after transition completes
+            setTimeout(() => { tabSwitchingRef.current = false; }, 150);
         }
     };
 
+    // [New] Handle Shared URL ( ?id=... )
+    const processedUrlRef = useRef(false);
+    useEffect(() => {
+        if (processedUrlRef.current) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const sharedId = params.get('id');
+        if (sharedId) {
+            processedUrlRef.current = true; // Mark as processed immediately
+            import('./services/firebase').then(({ getCloudGameById }) => {
+                getCloudGameById(sharedId).then(game => {
+                    if (game && (game.rootNode || (game.fen && game.fen !== 'start'))) {
+                        const loadedRoot = game.rootNode ? JSON.parse(game.rootNode) : null;
+                        if (!loadedRoot) {
+                            alert('預覽模式僅支援完整存檔，此棋譜可能為舊版格式。');
+                            return;
+                        }
+
+                        const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
+
+                        // Create New Tab
+                        const newId = `game-${Date.now()}`;
+                        const newRootId = `root-${newId}`;
+                        const newRoot = { ...loadedRoot, id: newRootId };
+
+                        const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
+                        const nextColor = allColors[tabs.length % allColors.length] as any;
+
+                        const newTab: GameTab = {
+                            id: newId,
+                            title: loadedMeta.title || '雲端分享',
+                            rootNode: newRoot,
+                            currentNodeId: newRootId,
+                            metadata: loadedMeta,
+                            createdAt: Date.now(),
+                            colorTag: nextColor,
+                            analysisResults: []
+                        };
+
+                        setTabs(prev => [...prev, newTab]);
+                        handleSwitchTab(newId, newTab);
+                        window.history.replaceState({}, '', '/'); // Clean URL
+                    } else {
+                        alert('找不到該分享的棋譜或是格式不正確。');
+                    }
+                }).catch(err => {
+                    console.error("Load shared game failed:", err);
+                    alert("載入分享棋譜失敗");
+                });
+            });
+        }
+    }, []);
+
     const handleAddTab = () => {
+        // Max 10 tabs limit
+        if (tabs.length >= 10) {
+            alert('最多只能存放 10 局棋譜。\n請先刪除舊局再新增新的棋譜。');
+            return;
+        }
+
         const newId = `game-${Date.now()}`;
         const newBoard = INITIAL_BOARD_SETUP();
         const newRoot = {
@@ -157,6 +280,11 @@ const App: React.FC = () => {
             fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1'
         };
 
+        // Auto-assign next unused color
+        const allColors: GameTab['colorTag'][] = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
+        const usedColors = tabs.map(t => t.colorTag).filter(c => c && c !== 'none');
+        const nextColor = allColors.find(c => !usedColors.includes(c)) || allColors[tabs.length % allColors.length];
+
         const newTab: GameTab = {
             id: newId,
             title: `新局 ${tabs.length + 1}`,
@@ -164,7 +292,8 @@ const App: React.FC = () => {
             currentNodeId: newRoot.id,
             metadata: { ...DEFAULT_METADATA, title: `新局 ${tabs.length + 1}` },
             createdAt: Date.now(),
-            colorTag: 'none'
+            colorTag: nextColor,
+            analysisResults: []
         };
 
         setTabs(prev => [...prev, newTab]);
@@ -218,18 +347,56 @@ const App: React.FC = () => {
 
     const [isCloudEnabled, setIsCloudEnabled] = useState(false);
     const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
+    const [showCloudLibrary, setShowCloudLibrary] = useState(false);
 
-    // Analysis Hook
-    const analysis = useAnalysis(
-        activePath,
-        (s) => { setShouldAnimate(false); jumpToStep(s); },
-        batchUpdateComments,
-        () => {
-            // Close behavior
-            if (window.innerWidth < 1024) setMobileTab('none');
-            else setDesktopRightPanel('moves');
+    // URL Query Param Handler for Shared Games
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const gameId = params.get('id');
+        if (gameId) {
+            import('./services/firebase').then(async ({ getCloudGameById }) => {
+                try {
+                    const game = await getCloudGameById(gameId);
+                    if (game && game.rootNode) {
+                        const loadedRoot = JSON.parse(game.rootNode);
+                        const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
+
+                        // Force update to a new tab or current tab
+                        setMetadata(loadedMeta);
+                        setRootNode({ ...loadedRoot, id: 'root-' + Date.now() });
+
+                        // Clean URL without refresh
+                        window.history.replaceState({}, document.title, window.location.pathname);
+
+                        // Maybe show a small toast?
+                        // notification.show(...) // Need to construct notification object, but simple load is fine.
+                    }
+                } catch (e) {
+                    console.error("Failed to load shared game", e);
+                    alert("載入分享棋譜失敗");
+                }
+            });
         }
-    );
+    }, []);
+
+    // Visual Sync: Board follows analysis progress (silent)
+    useEffect(() => {
+        if (analysis.isAnalyzing && analysis.currentAnalyzingNodeId) {
+            setShouldAnimate(false);
+            jumpToNode(analysis.currentAnalyzingNodeId, true); // true = silent (no sound)
+        }
+    }, [analysis.currentAnalyzingNodeId, analysis.isAnalyzing, jumpToNode]);
+
+    // Sync analysis results to current tab when they change
+    useEffect(() => {
+        if (analysis.results.length > 0 && activeTabId) {
+            setTabs(prev => prev.map(tab =>
+                tab.id === activeTabId
+                    ? { ...tab, analysisResults: analysis.results }
+                    : tab
+            ));
+        }
+    }, [analysis.results, activeTabId]);
 
     // Clear Engine Arrows/Stats when node changes or Engine is disabled
     useEffect(() => {
@@ -285,8 +452,28 @@ const App: React.FC = () => {
             const idx = tabs.findIndex(t => t.id === activeTabId);
             const newIdx = (idx + 1) % tabs.length;
             handleSwitchTab(tabs[newIdx].id);
-        }
+        },
+        isDisabled: analysis.isAnalyzing
     });
+
+    const handleStartAnalysis = (mode?: 'cloud' | 'local', depth?: number) => {
+        // 1. Switch to Analysis Tab
+        setMobileTab('analysis');
+        setDesktopRightPanel('analysis');
+
+        // 2. Start Logic
+        const targetMode = mode || analysis.analysisMode;
+
+        if (mode) analysis.setAnalysisMode(mode);
+        if (depth) analysis.setLocalDepth(depth);
+
+        if (targetMode === 'cloud') {
+            analysis.startCloudAnalysis();
+        } else {
+            console.log("Starting Local Analysis with depth:", depth);
+            analysis.startLocalAnalysis(depth);
+        }
+    };
 
     const handleRequestDelete = (msg: string) => showConfirm('確認刪除', msg, deleteCurrentMove);
     const handleRequestDeleteNode = (nodeId: string, msg: string) => showConfirm('確認刪除變著', msg, () => deleteNode(nodeId));
@@ -359,6 +546,7 @@ const App: React.FC = () => {
                         onOpenExport={() => setShowExport(true)}
                         onOpenGif={() => setShowGifExport(true)}
                         onOpenMemorize={() => memConfig.active ? stopMemorization() : setShowMemSetup(true)}
+                        onOpenCloud={() => setShowCloudLibrary(true)}
                         isMemorizing={memConfig.active}
                     />
                 }
@@ -368,11 +556,12 @@ const App: React.FC = () => {
                             tabs={tabs} activeTabId={activeTabId}
                             onSwitch={handleSwitchTab} onAdd={handleAddTab} onDelete={handleDeleteTab}
                             onRename={handleRenameTab} onReorder={handleReorderTab} onColorChange={handleColorChange}
+                            isLocked={analysis.isAnalyzing}
                         />
                         <CloudPanel
                             currentFen={currentNode.fen} currentBoard={currentNode.boardState}
                             onMoveClick={handleCloudMove}
-                            onOpenAnalysis={() => { setDesktopRightPanel('analysis'); }}
+                            onOpenAnalysis={() => setShowAnalysisSettings(true)} // UPDATED
                             isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
                             onEngineStatsUpdate={setEngineStats}
                         />
@@ -397,7 +586,7 @@ const App: React.FC = () => {
                                     <button onClick={() => setDesktopRightPanel('moves')} className="p-1 hover:bg-zinc-800 rounded text-zinc-400"><X size={16} /></button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-4">
-                                    <AnalysisPanel {...analysis} />
+                                    <AnalysisPanel {...analysis} onJumpToNode={jumpToNode} />
                                 </div>
                             </div>
                         ) : (
@@ -406,6 +595,7 @@ const App: React.FC = () => {
                                 onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); }}
                                 onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode}
                                 onReorder={reorderChildren} onLinkFen={linkMovesByFen}
+                                clipboardTags={clipboardTags} onEditTags={handleEditClipboardTags}
                             />
                         )
                     )
@@ -428,6 +618,7 @@ const App: React.FC = () => {
                         onNodeSelect={node => { setShouldAnimate(false); jumpToMove(node); }}
                         settings={settings} shouldAnimate={shouldAnimate}
                         engineBestMoves={engineBestMoves}
+                        isLocked={analysis.isAnalyzing}
                     />
                 }
                 controls={
@@ -455,7 +646,12 @@ const App: React.FC = () => {
                                 onJumpToStep={s => { setShouldAnimate(false); jumpToStep(s); }}
                                 onFlip={() => setIsFlipped(!isFlipped)} onMirror={() => setIsMirrored(!isMirrored)}
                                 currentIndex={currentIndex !== -1 ? currentIndex : 0}
-                                totalSteps={activePath.length} disabled={memConfig.active}
+                                totalSteps={activePath.length}
+                                disabled={analysis.isAnalyzing || memConfig.active}
+                                onOpenCloud={() => {
+                                    import('./services/firebase').then(({ prefetchPublicGames }) => prefetchPublicGames());
+                                    setShowCloudLibrary(true);
+                                }}
                             />
 
                             {/* Mobile Panels - Stacked Below - Only show if isMobilePortrait */}
@@ -464,7 +660,7 @@ const App: React.FC = () => {
                                     <CloudPanel
                                         currentFen={currentNode.fen} currentBoard={currentNode.boardState}
                                         onMoveClick={m => { handleCloudMove(m); }}
-                                        onOpenAnalysis={() => { setMobileTab('analysis'); }}
+                                        onOpenAnalysis={() => setShowAnalysisSettings(true)} // UPDATED
                                         isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
                                         onEngineStatsUpdate={setEngineStats}
                                         isCompact={true}
@@ -478,7 +674,7 @@ const App: React.FC = () => {
                             {isMobilePortrait && mobileTab === 'analysis' && (
                                 <div className="h-[25vh] border-t border-zinc-800 overflow-hidden bg-zinc-950 p-2 flex flex-col relative">
                                     <button onClick={() => setMobileTab('none')} className="absolute top-2 right-2 p-1 text-zinc-500 z-20"><X size={16} /></button>
-                                    <AnalysisPanel {...analysis} isCompact={true} />
+                                    <AnalysisPanel {...analysis} isCompact={true} onJumpToNode={jumpToNode} />
                                 </div>
                             )}
                         </div>
@@ -496,11 +692,7 @@ const App: React.FC = () => {
                             <Cpu size={16} /> <span className="text-[10px] font-bold">引擎</span>
                         </button>
                         <button onClick={() => {
-                            if (mobileTab === 'analysis') {
-                                setShowAnalysisSettings(true);
-                            } else {
-                                setMobileTab('analysis');
-                            }
+                            setShowAnalysisSettings(true);
                         }} className={`border border-zinc-700 rounded-lg flex flex-col items-center justify-center transition-all ${mobileTab === 'analysis' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
                             <Activity size={16} /> <span className="text-[10px] font-bold">分析</span>
                         </button>
@@ -518,6 +710,7 @@ const App: React.FC = () => {
                             setAnalysisMode={analysis.setAnalysisMode}
                             localDepth={analysis.localDepth}
                             setLocalDepth={analysis.setLocalDepth}
+                            onStart={handleStartAnalysis}
                         />
 
                         {isMobilePortrait && mobileTab === 'tabs' && (
@@ -537,7 +730,7 @@ const App: React.FC = () => {
                                     <button onClick={() => setMobileTab('none')} className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400"><X size={20} /></button>
                                 </div>
                                 <div className="flex-1 overflow-hidden relative bg-zinc-950">
-                                    <MoveListPanel movePath={activePath} currentNode={currentNode} rootNode={rootNode} onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); setMobileTab('none'); }} onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode} onReorder={reorderChildren} onLinkFen={linkMovesByFen} />
+                                    <MoveListPanel movePath={activePath} currentNode={currentNode} rootNode={rootNode} onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); setMobileTab('none'); }} onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode} onReorder={reorderChildren} onLinkFen={linkMovesByFen} clipboardTags={clipboardTags} onEditTags={handleEditClipboardTags} />
                                 </div>
                             </div>
                         )}
@@ -546,13 +739,53 @@ const App: React.FC = () => {
             />
 
             {/* Modals */}
+            <CloudLibrary
+                isOpen={showCloudLibrary}
+                onClose={() => setShowCloudLibrary(false)}
+                currentTab={tabs.find(t => t.id === activeTabId)!}
+                defaultTitle={metadata.title}
+                previewFen={currentNode.fen}
+                onLoadGame={(gameData) => {
+                    const { rootNode: loadedRoot, metadata: loadedMeta } = gameData;
+
+                    // [Feature] Enforce 10 tab limit
+                    if (tabs.length >= 10) {
+                        alert("本地端分頁已達 10 頁上限！\n請先刪除部分分頁以騰出空間。");
+                        return;
+                    }
+
+                    // Open in NEW tab
+                    const newId = `game-${Date.now()}`;
+                    const newRootId = `root-${newId}`;
+                    const newRoot = { ...loadedRoot, id: newRootId };
+
+                    // Auto-assign next unused color (consistent with handleAddTab)
+                    const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
+                    const usedColors = tabs.map(t => t.colorTag).filter(c => c && c !== 'none');
+                    const nextColor = allColors.find(c => !usedColors.includes(c)) || allColors[tabs.length % allColors.length];
+
+                    const newTab: any = { // Use any to avoid strict type checks here, or import GameTab
+                        id: newId,
+                        title: loadedMeta.title || '雲端棋譜',
+                        rootNode: newRoot,
+                        currentNodeId: newRootId,
+                        metadata: loadedMeta,
+                        createdAt: Date.now(),
+                        colorTag: nextColor,
+                        analysisResults: []
+                    };
+
+                    setTabs(prev => [...prev, newTab]);
+                    handleSwitchTab(newId, newTab);
+                    setShowCloudLibrary(false);
+                }}
+            />
             <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} onUpdate={setSettings} />
             <InfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} metadata={metadata} onSave={(m) => { setMetadata(m); setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, metadata: m } : t)); }} />
             <BoardEditorModal isOpen={showEditor} onClose={() => setShowEditor(false)} initialFen={currentNode.fen} onConfirm={handleEditorConfirm} isFlippedInitial={isFlipped} />
             <ImportModal isOpen={showImport} onClose={() => setShowImport(false)} onImport={p => { importGame(p.fen, p.moves, p.root); if (p.header) { const newMeta = { ...metadata, title: p.header.Title || metadata.title, redName: p.header.Red || metadata.redName, blackName: p.header.Black || metadata.blackName }; setMetadata(newMeta); setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, metadata: newMeta } : t)); } }} />
             <ExportModal isOpen={showExport} onClose={() => setShowExport(false)} rootNode={rootNode} metadata={metadata} />
             <MemorizationSetupModal isOpen={showMemSetup} onClose={() => setShowMemSetup(false)} onStart={startMemorization} />
-
             <MemorizationReportModal
                 isOpen={showReport}
                 onClose={() => setShowReport(false)}
@@ -581,6 +814,7 @@ const App: React.FC = () => {
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-sm w-full">
                         <div className="flex items-start gap-4 mb-4">
+                            {/* <HelpCircle className="text-amber-500" size={28} /> */} {/* Fixed Icon import */}
                             <HelpCircle className="text-amber-500" size={28} />
                             <div><h3 className="font-bold">{confirmState.title}</h3><p className="text-sm text-zinc-400">{confirmState.message}</p></div>
                         </div>

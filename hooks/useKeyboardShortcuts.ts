@@ -6,19 +6,21 @@ interface KeyboardShortcutsProps {
     onNext?: () => void;
     onUp?: () => void;
     onDown?: () => void;
-    
+
     // Tab Switching
     onTabNext?: () => void;
     onTabPrev?: () => void;
+    isDisabled?: boolean;
 }
 
-export const useKeyboardShortcuts = ({ 
-    onPrev, 
+export const useKeyboardShortcuts = ({
+    onPrev,
     onNext,
     onUp,
     onDown,
     onTabNext,
-    onTabPrev
+    onTabPrev,
+    isDisabled = false
 }: KeyboardShortcutsProps) => {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -27,7 +29,7 @@ export const useKeyboardShortcuts = ({
             const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
 
             // Allow Alt shortcuts even in inputs if needed, but generally safer to block
-            if (isInput) return;
+            if (isInput || isDisabled) return;
 
             // Tab Switching (Alt + Up/Down)
             if (e.altKey) {
@@ -50,7 +52,7 @@ export const useKeyboardShortcuts = ({
             switch (e.key) {
                 case 'ArrowLeft':
                     if (onPrev) {
-                        e.preventDefault(); 
+                        e.preventDefault();
                         onPrev();
                     }
                     break;
@@ -77,5 +79,5 @@ export const useKeyboardShortcuts = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onPrev, onNext, onUp, onDown, onTabNext, onTabPrev]);
+    }, [onPrev, onNext, onUp, onDown, onTabNext, onTabPrev, isDisabled]);
 };

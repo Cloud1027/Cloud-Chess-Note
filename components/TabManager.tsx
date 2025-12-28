@@ -12,6 +12,7 @@ interface TabManagerProps {
     onRename: (id: string, newTitle: string) => void;
     onReorder: (id: string, direction: 'up' | 'down') => void;
     onColorChange: (id: string, color: GameTab['colorTag']) => void;
+    isLocked?: boolean;
 }
 
 const TabManager: React.FC<TabManagerProps> = ({
@@ -22,7 +23,8 @@ const TabManager: React.FC<TabManagerProps> = ({
     onDelete,
     onRename,
     onReorder,
-    onColorChange
+    onColorChange,
+    isLocked = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -74,10 +76,16 @@ const TabManager: React.FC<TabManagerProps> = ({
 
     const getColorClass = (color: string | undefined) => {
         switch (color) {
-            case 'red': return 'bg-red-500';
             case 'blue': return 'bg-blue-500';
             case 'green': return 'bg-green-500';
-            case 'yellow': return 'bg-yellow-500';
+            case 'red': return 'bg-red-500';
+            case 'orange': return 'bg-orange-500';
+            case 'purple': return 'bg-purple-500';
+            case 'teal': return 'bg-teal-500';
+            case 'dark': return 'bg-zinc-500';
+            case 'pink': return 'bg-pink-400';
+            case 'yellow': return 'bg-yellow-400';
+            case 'coffee': return 'bg-amber-700';
             default: return 'bg-zinc-600';
         }
     };
@@ -93,8 +101,9 @@ const TabManager: React.FC<TabManagerProps> = ({
             {/* Top Row: Active Tab Selector & Add */}
             <div className="flex items-center gap-1 p-2">
                 <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="flex-1 flex items-center justify-between bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg px-3 py-2 transition-all group"
+                    onClick={() => !isLocked && setIsOpen(!isOpen)}
+                    className={`flex-1 flex items-center justify-between bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 transition-all group ${isLocked ? 'cursor-not-allowed opacity-80' : 'hover:bg-zinc-700'}`}
+                    disabled={isLocked}
                 >
                     <div className="flex items-center gap-2 overflow-hidden">
                         <div className={`w-2 h-2 rounded-full ${getColorClass(currentTab.colorTag)}`} />
@@ -109,8 +118,9 @@ const TabManager: React.FC<TabManagerProps> = ({
                 </button>
                 <button
                     onClick={onAdd}
-                    className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg hover:shadow-blue-500/20 transition-all active:scale-95"
-                    title="新增棋譜"
+                    className={`p-2 rounded-lg shadow-lg transition-all active:scale-95 ${isLocked ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white hover:shadow-blue-500/20'}`}
+                    disabled={isLocked}
+                    title={isLocked ? "分析中，暫時禁用" : "新增棋譜"}
                 >
                     <Plus size={18} />
                 </button>
@@ -165,13 +175,25 @@ const TabManager: React.FC<TabManagerProps> = ({
 
                                     {/* Action Buttons (Visible on Hover or Active) */}
                                     <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isActive ? 'opacity-100' : ''}`}>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); onColorChange(tab.id, nextColor(tab.colorTag)); }}
-                                            className="p-1.5 hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 rounded"
-                                            title="切換顏色標記"
+                                        <select
+                                            value={tab.colorTag || 'none'}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={(e) => { onColorChange(tab.id, e.target.value as GameTab['colorTag']); }}
+                                            className="bg-zinc-800 border border-zinc-700 text-zinc-300 text-[10px] rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            title="選擇顏色"
                                         >
-                                            <Palette size={13} />
-                                        </button>
+                                            <option value="none">⚪ 無</option>
+                                            <option value="blue">🔵 藍色</option>
+                                            <option value="green">🟢 綠色</option>
+                                            <option value="red">🔴 紅色</option>
+                                            <option value="orange">🟠 橘色</option>
+                                            <option value="purple">🟣 紫色</option>
+                                            <option value="teal">🩵 青色</option>
+                                            <option value="dark">⚫ 灰色</option>
+                                            <option value="pink">🌸 粉色</option>
+                                            <option value="yellow">⭐ 黃色</option>
+                                            <option value="coffee">☕ 咖啡</option>
+                                        </select>
                                         <button
                                             onClick={(e) => startEditing(tab, e)}
                                             className="p-1.5 hover:bg-zinc-700 text-zinc-500 hover:text-blue-400 rounded"
@@ -219,7 +241,7 @@ const TabManager: React.FC<TabManagerProps> = ({
                         <span className="flex items-center gap-1">Alt+<ArrowUp size={10} />/<ArrowDown size={10} /> 切換</span>
                     </div>
                     <div className="flex gap-1">
-                        <button onClick={() => startEditing(currentTab, { stopPropagation: () => { } } as any)} className="hover:text-zinc-300">命名</button>
+                        <button onClick={() => { setIsOpen(true); setEditingId(currentTab.id); setEditValue(currentTab.title); }} className="hover:text-zinc-300">命名</button>
                         <span className="opacity-50">|</span>
                         <button onClick={() => onDelete(currentTab.id)} className="hover:text-red-400 disabled:opacity-50" disabled={tabs.length <= 1}>刪除</button>
                     </div>
