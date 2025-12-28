@@ -29,6 +29,7 @@ export const useAuth = () => {
     const login = async () => {
         try {
             console.log("Starting redirect login...");
+            localStorage.setItem('auth_redirect_started', 'true');
             await signInWithRedirect(auth, googleProvider);
         } catch (error: any) {
             console.error("Login start failed:", error);
