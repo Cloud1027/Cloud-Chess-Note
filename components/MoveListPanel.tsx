@@ -15,6 +15,8 @@ interface MoveListPanelProps {
     onLinkFen: () => void;
     clipboardTags: string[];
     onEditTags: () => void;
+    onNodeClick?: (node: MoveNode) => void;      // New: For mobile single click (select only)
+    onNodeDoubleClick?: (node: MoveNode) => void; // New: For mobile double click (jump & close)
 }
 
 const MoveListPanel: React.FC<MoveListPanelProps> = ({
@@ -28,11 +30,24 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
     onReorder,
     onLinkFen,
     clipboardTags,
-    onEditTags
+    onEditTags,
+    onNodeClick,
+    onNodeDoubleClick
 }) => {
     const activeRowRef = useRef<HTMLTableRowElement>(null);
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const panelContainerRef = useRef<HTMLDivElement>(null);
+
+    // Helper to handle clicks
+    const handleNodeClick = (node: MoveNode) => {
+        if (onNodeClick) onNodeClick(node);
+        else onJumpToMove(node);
+    };
+
+    // Helper to handle double clicks
+    const handleNodeDoubleClick = (node: MoveNode) => {
+        if (onNodeDoubleClick) onNodeDoubleClick(node);
+    };
 
     // Resizing state
     const [heights, setHeights] = React.useState({ moves: 50, variations: 25, comments: 25 });
@@ -194,7 +209,8 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
                         <tbody className="divide-y divide-zinc-800/50">
                             {/* Root Node Row */}
                             <tr
-                                onClick={() => onJumpToMove(rootNode)}
+                                onClick={() => handleNodeClick(rootNode)}
+                                onDoubleClick={() => handleNodeDoubleClick(rootNode)}
                                 className={`cursor-pointer group transition-colors ${isRoot ? 'bg-blue-900/30' : 'hover:bg-zinc-800/30'}`}
                             >
                                 <td className="px-2 py-2 text-center text-zinc-600 font-mono text-xs">0</td>
@@ -228,7 +244,8 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
                                         return (
                                             <div
                                                 className={`cursor-pointer px-2 py-1.5 rounded flex items-center justify-between group ${isCurrent ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-zinc-800/50'}`}
-                                                onClick={() => onJumpToMove(node)}
+                                                onClick={() => handleNodeClick(node)}
+                                                onDoubleClick={() => handleNodeDoubleClick(node)}
                                             >
                                                 <span className="font-medium truncate">{node.move.notation}</span>
                                                 <div className="flex items-center gap-1.5 shrink-0">
@@ -292,7 +309,10 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
                                             ${isSelected ? 'bg-blue-900/20 border-blue-800/50' : 'bg-zinc-900/50 border-zinc-800/50 hover:bg-zinc-800 hover:border-zinc-700'}
                                         `}>
 
-                                        <div className="flex items-center gap-2 flex-1 cursor-pointer min-w-0" onClick={() => onJumpToMove(sibling)}>
+                                        <div className="flex items-center gap-2 flex-1 cursor-pointer min-w-0"
+                                            onClick={() => handleNodeClick(sibling)}
+                                            onDoubleClick={() => handleNodeDoubleClick(sibling)}
+                                        >
                                             <span className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${isSelected ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
                                                 {String.fromCharCode(65 + idx)}
                                             </span>

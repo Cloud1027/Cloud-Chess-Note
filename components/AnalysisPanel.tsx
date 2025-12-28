@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cloud, Cpu, StopCircle, Edit3 } from 'lucide-react';
+import { Cloud, Cpu, StopCircle, Edit3, RotateCw } from 'lucide-react';
 import { AnalysisResult } from '../types';
 
 interface AnalysisPanelProps {
@@ -147,6 +147,16 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                     >
                         <span>縮放:</span>
                         <span className="font-bold text-zinc-200">±{yMax}</span>
+                    </button>
+
+                    {/* Re-analyze Button */}
+                    <button
+                        onClick={() => startLocalAnalysis()}
+                        className="absolute top-2 right-2 z-10 text-[10px] text-zinc-400 bg-zinc-900/80 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700 transition-colors flex items-center gap-1 shadow-lg"
+                        title="重新分析"
+                    >
+                        <RotateCw size={12} />
+                        <span>重新分析</span>
                     </button>
 
                     <div className="flex-1 w-full relative h-full">

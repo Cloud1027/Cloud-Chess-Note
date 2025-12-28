@@ -236,12 +236,28 @@ const App: React.FC = () => {
                             return;
                         }
 
+                        // Recursive ID Regeneration for Full Fork
+                        const regenerateIds = (node: any): any => {
+                            const newLocalId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                            const newNode = { ...node, id: newLocalId };
+                            if (node.children) {
+                                newNode.children = node.children.map((c: any) => {
+                                    const child = regenerateIds(c);
+                                    child.parentId = newLocalId;
+                                    return child;
+                                });
+                            }
+                            return newNode;
+                        };
+
+                        const newRoot = regenerateIds(loadedRoot);
+                        newRoot.parentId = null; // Ensure root has no parent
+
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
 
                         // Create New Tab
                         const newId = `game-${Date.now()}`;
-                        const newRootId = `root-${newId}`;
-                        const newRoot = { ...loadedRoot, id: newRootId };
+                        const newRootId = newRoot.id; // Use the regenerated ID
 
                         const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
                         const nextColor = allColors[tabs.length % allColors.length] as any;
@@ -742,7 +758,14 @@ const App: React.FC = () => {
                                     <button onClick={() => setMobileTab('none')} className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400"><X size={20} /></button>
                                 </div>
                                 <div className="flex-1 overflow-hidden relative bg-zinc-950">
-                                    <MoveListPanel movePath={activePath} currentNode={currentNode} rootNode={rootNode} onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); setMobileTab('none'); }} onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode} onReorder={reorderChildren} onLinkFen={linkMovesByFen} clipboardTags={clipboardTags} onEditTags={handleEditClipboardTags} />
+                                    <MoveListPanel
+                                        movePath={activePath} currentNode={currentNode} rootNode={rootNode}
+                                        onJumpToMove={n => { setShouldAnimate(false); jumpToMove(n); }}
+                                        onNodeClick={n => { setShouldAnimate(false); jumpToMove(n); }}
+                                        onNodeDoubleClick={n => { setShouldAnimate(false); jumpToMove(n); setMobileTab('none'); }}
+                                        onUpdateComment={updateComment} onRequestDelete={handleRequestDelete} onRequestDeleteNode={handleRequestDeleteNode}
+                                        onReorder={reorderChildren} onLinkFen={linkMovesByFen} clipboardTags={clipboardTags} onEditTags={handleEditClipboardTags}
+                                    />
                                 </div>
                             </div>
                         )}
