@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, LogOut, Cloud, Globe, Lock, Unlock, Trash2, Download, Save, ExternalLink, Share2 } from 'lucide-react';
+import { X, User, LogOut, Cloud, Globe, Lock, Unlock, Trash2, Download, Save, ExternalLink, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { saveGameToCloud, getUserGames, getPublicGames, deleteCloudGame, updateCloudGame } from '../services/firebase';
 import { INITIAL_BOARD_SETUP } from '../constants';
@@ -24,6 +24,8 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
     const [saveTitle, setSaveTitle] = useState(defaultTitle || currentTab.title); // Initialize with defaultTitle
     const [isSavePublic, setIsSavePublic] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+
+    const [isAuthExpanded, setIsAuthExpanded] = useState(false);
 
     // Email Auth State
     const [email, setEmail] = useState('');
