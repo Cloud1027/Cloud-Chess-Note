@@ -54,8 +54,8 @@ export class LocalEngine {
     public async init(): Promise<void> {
         if (this.isReady) return;
 
-        // Cache Buster to force reload of engine files
-        const TIMESTAMP = Date.now();
+        // Cache Buster (Static version to allow caching but break old versions)
+        const TIMESTAMP = 'v1.1_hash32';
 
         // Diagnostic Checks
         if (!window.crossOriginIsolated) {
@@ -170,8 +170,8 @@ export class LocalEngine {
         if (line === 'uciok') {
             console.log('UCI ok');
             // Default settings for Pikafish
-            this.sendCommand('setoption name Threads value 1');
-            this.sendCommand('setoption name Hash value 16');
+            this.sendCommand('setoption name Threads value 4');
+            this.sendCommand('setoption name Hash value 32');
             // Explicitly point to the NNUE file loaded by the JS wrapper
             // this.sendCommand('setoption name EvalFile value pikafish.nnue');
         }
