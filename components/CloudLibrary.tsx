@@ -4,8 +4,41 @@ import { useAuth } from '../hooks/useAuth';
 import { saveGameToCloud, getUserGames, getPublicGames, deleteCloudGame, updateCloudGame } from '../services/firebase';
 import { INITIAL_BOARD_SETUP } from '../constants';
 import { MiniBoardPreview } from './MiniBoardPreview';
+import { fenToBoard } from '../lib/utils';
 // import { moveListToFen } from '../lib/utils'; // Unused
 import { GameTab } from '../types';
+
+// Helper: Remove voluminous boardState for storage
+const minimizeNode = (node: any): any => {
+    // Destructure to exclude boardState
+    const { boardState, ...rest } = node;
+    const cleanNode = { ...rest };
+    if (cleanNode.children && cleanNode.children.length > 0) {
+        cleanNode.children = cleanNode.children.map(minimizeNode);
+    }
+    return cleanNode;
+};
+
+// Helper: Regenerate boardState from FEN on load
+const restoreNode = (node: any, parentId: string | null = null): any => {
+    // If boardState is missing, regenerate it
+    let board = node.boardState;
+    if (!board && node.fen) {
+        const res = fenToBoard(node.fen);
+        board = res.board;
+    }
+
+    const restoredNode = {
+        ...node,
+        boardState: board, // Ensure boardState exists
+        parentId: parentId // Ensure parentId is correct
+    };
+
+    if (restoredNode.children && restoredNode.children.length > 0) {
+        restoredNode.children = restoredNode.children.map((child: any) => restoreNode(child, restoredNode.id));
+    }
+    return restoredNode;
+};
 
 interface CloudLibraryProps {
     isOpen: boolean;
@@ -142,10 +175,13 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
 
         setIsSaving(true);
         try {
+            // Minimize tree to avoid payload limits
+            const minimizedRoot = minimizeNode(currentTab.rootNode);
+
             const gameData = {
                 title: saveTitle || '無標題',
                 fen: previewFen,
-                rootNode: JSON.stringify(currentTab.rootNode),
+                rootNode: JSON.stringify(minimizedRoot),
                 metadata: {
                     ...currentTab.metadata,
                     title: saveTitle
@@ -206,7 +242,10 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
             // If legacy format (just moves), handle it. If new format (rootNode), parse it.
             let loadedRoot;
             if (game.rootNode) {
-                loadedRoot = JSON.parse(game.rootNode);
+                const parsedRoot = JSON.parse(game.rootNode);
+                // Restore boardState logic
+                loadedRoot = restoreNode(parsedRoot, null);
+
                 onLoadGame({
                     rootNode: loadedRoot,
                     metadata: game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName }
