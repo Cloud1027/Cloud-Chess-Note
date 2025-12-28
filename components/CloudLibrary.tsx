@@ -174,7 +174,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
 
                     {/* Sidebar / User Profile */}
                     <div className="w-full md:w-64 bg-zinc-950 border-b md:border-b-0 md:border-r border-zinc-800 p-3 md:p-4 flex flex-row md:flex-col gap-4 md:gap-6 shrink-0 items-center md:items-stretch justify-between md:justify-start overflow-x-auto scrollbar-hide">
@@ -232,7 +232,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                     </div>
 
                     {/* Right Panel: Game List */}
-                    <div className="flex-1 flex flex-col bg-zinc-900 relative">
+                    <div className="flex-1 flex flex-col bg-zinc-900 relative min-h-0">
 
                         {/* Save Action Area (Only visible in 'My Games' when logged in) */}
                         {/* Save Action Area - Always Visible */}
