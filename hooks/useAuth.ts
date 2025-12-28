@@ -8,10 +8,14 @@ export const useAuth = () => {
 
     useEffect(() => {
         // Handle Redirect Result
-        getRedirectResult(auth).catch((error) => {
+        getRedirectResult(auth).then((result) => {
+            if (result?.user) {
+                console.log("Redirect login success:", result.user.email);
+            }
+        }).catch((error) => {
             console.error("Login failed (redirect):", error);
             if (error.code !== 'auth/popup-closed-by-user') {
-                alert(`登入失敗: ${error.message}`);
+                alert(`登入失敗 (Redirect): ${error.message}`);
             }
         });
 
@@ -24,6 +28,7 @@ export const useAuth = () => {
 
     const login = async () => {
         try {
+            console.log("Starting redirect login...");
             await signInWithRedirect(auth, googleProvider);
         } catch (error: any) {
             console.error("Login start failed:", error);
