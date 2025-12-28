@@ -72,7 +72,7 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         }
         return () => {
             if (mode === 'local' && isLocalAnalyzing && engineRef.current) {
-                // engineRef.current.stopAnalysis(); 
+                engineRef.current.stopAnalysis();
             }
         };
     }, [currentFen, mode, isLocalAnalyzing, engineReady]);
