@@ -211,10 +211,22 @@ const App: React.FC = () => {
     useEffect(() => {
         if (processedUrlRef.current) return;
 
+        // Parse URL for shared game ID
         const params = new URLSearchParams(window.location.search);
-        const sharedId = params.get('id');
+        let sharedId = params.get('id');
+
+        // Also check for /s/ID format (Server-side rewrite)
+        if (!sharedId) {
+            const match = window.location.pathname.match(/^\/s\/([^/]+)/);
+            if (match) {
+                sharedId = match[1];
+            }
+        }
+
         if (sharedId) {
-            processedUrlRef.current = true; // Mark as processed immediately
+            processedUrlRef.current = true;
+            // Clean URL
+            window.history.replaceState({}, '', '/');
             import('./services/firebase').then(({ getCloudGameById }) => {
                 getCloudGameById(sharedId).then(game => {
                     if (game && (game.rootNode || (game.fen && game.fen !== 'start'))) {

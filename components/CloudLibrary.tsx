@@ -402,7 +402,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                     <div className="flex items-center justify-end gap-2 mt-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                         <button
                                                             onClick={() => {
-                                                                const url = `${window.location.origin}/?id=${game.id}`;
+                                                                const url = `${window.location.origin}/s/${game.id}`;
                                                                 navigator.clipboard.writeText(url).then(() => alert("連結已複製到剪貼簿！"));
                                                             }}
                                                             className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 rounded-lg flex items-center gap-1 transition-colors"
