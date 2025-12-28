@@ -138,7 +138,7 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!activeTabId || tabSwitchingRef.current) return; // Skip sync during transitions
         const activeTab = tabs.find(t => t.id === activeTabId);
-        if (!activeTab || rootNode.id !== activeTab.rootNode.id) return;
+        if (!activeTab) return;
 
         setTabs(prevTabs => {
             const currentTab = prevTabs.find(t => t.id === activeTabId);
