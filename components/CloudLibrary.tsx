@@ -297,45 +297,64 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-3 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex flex-col gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Email (例如: user@gmail.com)"
-                                        className="bg-zinc-800 border border-zinc-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-zinc-600"
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                    />
-                                    <input
-                                        type="password"
-                                        placeholder="密碼 (至少6位)"
-                                        className="bg-zinc-800 border border-zinc-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-zinc-600"
-                                        value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                    />
-                                </div>
+                            <div className="flex flex-col gap-2 w-full">
+                                <button
+                                    onClick={() => setIsAuthExpanded(!isAuthExpanded)}
+                                    className="md:hidden w-full flex items-center justify-between px-3 py-2 bg-zinc-800 rounded-lg text-sm text-zinc-300 hover:text-white transition-colors"
+                                >
+                                    <span className="font-bold text-blue-400">✨ 登入以解鎖功能</span>
+                                    {isAuthExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </button>
 
-                                {authError && <div className="text-red-400 text-xs text-center">{authError}</div>}
+                                <div className={`${isAuthExpanded ? 'flex' : 'hidden'} md:flex flex-col gap-3 w-full animate-in fade-in slide-in-from-top-2 duration-300`}>
+                                    <div className="flex flex-col gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Email (例如: user@gmail.com)"
+                                            className="bg-zinc-800 border border-zinc-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-zinc-600"
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="密碼 (至少6位)"
+                                            className="bg-zinc-800 border border-zinc-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-zinc-600"
+                                            value={password}
+                                            onChange={e => setPassword(e.target.value)}
+                                        />
+                                    </div>
 
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={handleEmailLogin}
-                                        disabled={isAuthLoading}
-                                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm font-bold shadow-lg shadow-blue-900/20 disabled:opacity-50 transition-all active:scale-95"
-                                    >
-                                        {isAuthLoading ? '...' : '登入'}
-                                    </button>
-                                    <button
-                                        onClick={handleRegister}
-                                        disabled={isAuthLoading}
-                                        className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded text-sm border border-zinc-700 disabled:opacity-50 transition-all active:scale-95"
-                                    >
-                                        註冊帳號
-                                    </button>
+                                    <div className="flex justify-end -mt-1">
+                                        <button
+                                            onClick={handleForgotPassword}
+                                            className="text-xs text-zinc-400 hover:text-white underline decoration-zinc-600 cursor-pointer"
+                                        >
+                                            忘記密碼？
+                                        </button>
+                                    </div>
+
+                                    {authError && <div className="text-red-400 text-xs text-center">{authError}</div>}
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleEmailLogin}
+                                            disabled={isAuthLoading}
+                                            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm font-bold shadow-lg shadow-blue-900/20 disabled:opacity-50 transition-all active:scale-95"
+                                        >
+                                            {isAuthLoading ? '...' : '登入'}
+                                        </button>
+                                        <button
+                                            onClick={handleRegister}
+                                            disabled={isAuthLoading}
+                                            className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded text-sm border border-zinc-700 disabled:opacity-50 transition-all active:scale-95"
+                                        >
+                                            註冊帳號
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-zinc-500 text-center mt-1">
+                                        * 僅需 Email 格式即可，無需真實信箱驗證
+                                    </p>
                                 </div>
-                                <p className="text-[10px] text-zinc-500 text-center mt-1">
-                                    * 僅需 Email 格式即可，無需真實信箱驗證
-                                </p>
                             </div>
                         )}
 
