@@ -17,7 +17,7 @@ interface CloudLibraryProps {
 }
 
 const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab, defaultTitle, previewFen, onLoadGame }) => {
-    const { user, login, logout, loading, loginEmail, registerEmail } = useAuth();
+    const { user, login, logout, loading, loginEmail, registerEmail, resetPassword } = useAuth();
     const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
     const [games, setGames] = useState<any[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
@@ -64,6 +64,20 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
             setAuthError(msg);
         } finally {
             setIsAuthLoading(false);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email) return setAuthError("請先輸入您的 Email");
+        setAuthError(null);
+        try {
+            await resetPassword(email);
+            alert(`重設密碼信件已寄送到 ${email}。\n請查收信件並依照指示重設密碼。`);
+        } catch (e: any) {
+            let msg = "發送失敗";
+            if (e.code === 'auth/invalid-email') msg = "Email 格式錯誤";
+            if (e.code === 'auth/user-not-found') msg = "查無此用戶";
+            setAuthError(msg);
         }
     };
 
