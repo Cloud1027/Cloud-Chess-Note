@@ -8,6 +8,10 @@
   <title>Cloud Chess Note</title>
   <meta name="description" content="雲端棋譜筆記 - 隨時隨地紀錄、分析、分享您的精采對局。">
 
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
   <!-- Open Graph / Facebook / LINE -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Cloud Chess Note - 雲端棋譜筆記">
@@ -19,6 +23,20 @@
   <meta property="twitter:title" content="Cloud Chess Note - 雲端棋譜筆記">
   <meta property="twitter:description" content="隨時隨地紀錄、分析、分享您的精采對局。支援雲端儲存、FEN 導入與即時分析。">
   <meta property="twitter:image" content="/og-image.png">
+
+  <script>
+    // CRITICAL: Unregister any existing Service Workers to clear stale cache (headers)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (let registration of registrations) {
+          console.warn('Force Unregistering SW:', registration);
+          registration.unregister().then(() => {
+            console.log('SW Unregistered. Reloading usually required.');
+          });
+        }
+      });
+    }
+  </script>
   <!-- Enable SharedArrayBuffer on GitHub Pages for WASM threading -->
   <!-- <script src="/coi-serviceworker.js"></script> -->
   <script src="https://cdn.tailwindcss.com"></script>
