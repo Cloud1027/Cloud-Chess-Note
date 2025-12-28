@@ -143,29 +143,23 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
         setIsSaving(true);
         try {
             const gameData = {
-                title: saveTitle,
-                fen: previewFen, // [MODIFIED] Use the current board state as preview/thumbnail
-                // We should ideally save the whole MoveTree. For simplicity in this V1, let's save:
-                // 1. Root FEN
-                // 2. Metadata
-                // 3. Full Move JSON (rootNode)
-                rootNode: JSON.stringify(currentTab.rootNode), // Serialize tree
+                title: saveTitle || '無標題',
+                fen: previewFen,
+                rootNode: JSON.stringify(currentTab.rootNode),
                 metadata: {
                     ...currentTab.metadata,
                     title: saveTitle
                 },
-                redName: currentTab.metadata.redName,
-                blackName: currentTab.metadata.blackName,
-                result: currentTab.metadata.result,
+                redName: currentTab.metadata.redName || '',
+                blackName: currentTab.metadata.blackName || '',
+                result: currentTab.metadata.result || 'unknown',
                 date: new Date().toISOString()
             };
 
-            // If on Public tab, force public. If on My tab, use checkbox.
             const shouldBePublic = activeTab === 'public' || isSavePublic;
             await saveGameToCloud(user.uid, gameData, shouldBePublic);
             alert("儲存成功！");
 
-            // Refresh list
             if (activeTab === 'my') {
                 const data = await getUserGames(user.uid);
                 setGames(data);
@@ -173,9 +167,9 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                 const data = await getPublicGames();
                 setGames(data);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Save failed:", error);
-            alert("儲存失敗");
+            alert("儲存失敗: " + (error.message || "未知錯誤"));
         } finally {
             setIsSaving(false);
         }
