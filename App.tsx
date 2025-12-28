@@ -447,6 +447,36 @@ const App: React.FC = () => {
         return moves;
     }, [engineStats, currentNode.turn, settings.showEngineArrows]);
 
+    // Global Keyboard Shortcuts (Ctrl + S/I/E/G)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Only trigger if Ctrl or Meta (Cmd) is pressed
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key.toLowerCase()) {
+                    case 's':
+                        e.preventDefault(); // Prevent browser save
+                        setShowCloudLibrary(true);
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        setShowImport(true);
+                        break;
+                    case 'e': // Ctrl+E
+                        e.preventDefault();
+                        setShowExport(true);
+                        break;
+                    case 'g':
+                        e.preventDefault();
+                        setShowGifExport(true);
+                        break;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     // Keyboard Shortcuts Integration
     useKeyboardShortcuts({
         onPrev: () => {

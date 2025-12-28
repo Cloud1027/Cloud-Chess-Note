@@ -123,17 +123,21 @@ const Header: React.FC<HeaderProps> = ({
                     </button>
                     {isFileMenuOpen && (
                         <div className="absolute top-full right-0 mt-1 w-44 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 z-50 flex flex-col">
-                            <button onClick={() => { onOpenImport?.(); setIsFileMenuOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                <Upload size={14} /> 導入
+                            <button onClick={() => { onOpenImport?.(); setIsFileMenuOpen(false); }} className="flex items-center justify-between gap-4 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left group">
+                                <span className="flex items-center gap-2"><Upload size={14} /> 導入</span>
+                                <span className="text-[10px] text-zinc-500 font-mono tracking-tighter opacity-50 group-hover:opacity-100 transition-opacity">(Ctrl+I)</span>
                             </button>
-                            <button onClick={() => { onOpenExport?.(); setIsFileMenuOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                <Download size={14} /> 導出
+                            <button onClick={() => { onOpenExport?.(); setIsFileMenuOpen(false); }} className="flex items-center justify-between gap-4 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left group">
+                                <span className="flex items-center gap-2"><Download size={14} /> 導出</span>
+                                <span className="text-[10px] text-zinc-500 font-mono tracking-tighter opacity-50 group-hover:opacity-100 transition-opacity">(Ctrl+E)</span>
                             </button>
-                            <button onClick={() => { onOpenGif?.(); setIsFileMenuOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                <ImageIcon size={14} /> 匯出 GIF
+                            <button onClick={() => { onOpenGif?.(); setIsFileMenuOpen(false); }} className="flex items-center justify-between gap-4 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left group">
+                                <span className="flex items-center gap-2"><ImageIcon size={14} /> 匯出 GIF</span>
+                                <span className="text-[10px] text-zinc-500 font-mono tracking-tighter opacity-50 group-hover:opacity-100 transition-opacity">(Ctrl+G)</span>
                             </button>
-                            <button onClick={() => { onOpenCloud?.(); setIsFileMenuOpen(false); }} className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left">
-                                <Cloud size={14} /> 上傳雲端
+                            <button onClick={() => { onOpenCloud?.(); setIsFileMenuOpen(false); }} className="flex items-center justify-between gap-4 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left group">
+                                <span className="flex items-center gap-2"><Cloud size={14} /> 上傳雲端</span>
+                                <span className="text-[10px] text-zinc-500 font-mono tracking-tighter opacity-50 group-hover:opacity-100 transition-opacity">(Ctrl+S)</span>
                             </button>
                         </div>
                     )}
