@@ -54,6 +54,9 @@ export class LocalEngine {
     public async init(): Promise<void> {
         if (this.isReady) return;
 
+        // Cache Buster to force reload of engine files
+        const TIMESTAMP = Date.now();
+
         // Diagnostic Checks
         if (!window.crossOriginIsolated) {
             console.error("CRITICAL: Page is NOT crossOriginIsolated. SharedArrayBuffer will fail.");
@@ -68,7 +71,8 @@ export class LocalEngine {
         console.log("Engine Init: Security Checks Passed (COOP/COEP Active)");
 
         console.log("Engine Base Path:", this.engineBasePath);
-        const nnuePath = this.engineBasePath + 'pikafish.nnue';
+        // Force fresh load of NNUE
+        const nnuePath = this.engineBasePath + 'pikafish.nnue?v=' + TIMESTAMP;
 
         try {
             console.log("Checking NNUE availability at:", nnuePath);
@@ -91,7 +95,7 @@ export class LocalEngine {
                 locateFile: (path: string, prefix: string) => {
                     console.log('locateFile called:', path, 'prefix:', prefix);
                     // Always use our engine base path regardless of prefix
-                    return this.engineBasePath + path;
+                    return this.engineBasePath + path + '?v=' + TIMESTAMP;
                 },
                 onReceiveStdout: (line: string) => {
                     console.log('Engine:', line);
@@ -106,7 +110,7 @@ export class LocalEngine {
             };
 
             const script = document.createElement('script');
-            script.src = this.engineBasePath + 'pikafish.js';
+            script.src = this.engineBasePath + 'pikafish.js?v=' + TIMESTAMP;
             script.async = true;
 
             script.onload = async () => {
@@ -119,7 +123,7 @@ export class LocalEngine {
                         this.stockfish = await Pikafish({
                             locateFile: (path: string) => {
                                 console.log('Pikafish locateFile:', path);
-                                return this.engineBasePath + path;
+                                return this.engineBasePath + path + '?v=' + TIMESTAMP;
                             },
                             onReceiveStdout: (line: string) => {
                                 console.log('Engine:', line);
@@ -166,8 +170,8 @@ export class LocalEngine {
         if (line === 'uciok') {
             console.log('UCI ok');
             // Default settings for Pikafish
-            this.sendCommand('setoption name Threads value 4');
-            this.sendCommand('setoption name Hash value 64');
+            this.sendCommand('setoption name Threads value 1');
+            this.sendCommand('setoption name Hash value 16');
             // Explicitly point to the NNUE file loaded by the JS wrapper
             // this.sendCommand('setoption name EvalFile value pikafish.nnue');
         }
