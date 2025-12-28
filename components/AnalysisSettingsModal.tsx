@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cloud, Cpu, X, Check } from 'lucide-react';
+import { Cloud, Cpu, X, Check, Activity } from 'lucide-react';
 
 interface AnalysisSettingsModalProps {
     isOpen: boolean;
@@ -9,6 +9,8 @@ interface AnalysisSettingsModalProps {
     localDepth: number;
     setLocalDepth: (depth: number) => void;
     onStart?: (mode: 'cloud' | 'local', depth: number) => void;
+    hasResults?: boolean;
+    onShowResults?: () => void;
 }
 
 export const AnalysisSettingsModal: React.FC<AnalysisSettingsModalProps> = ({
@@ -18,7 +20,9 @@ export const AnalysisSettingsModal: React.FC<AnalysisSettingsModalProps> = ({
     setAnalysisMode,
     localDepth,
     setLocalDepth,
-    onStart
+    onStart,
+    hasResults,
+    onShowResults
 }) => {
     const handleConfirm = () => {
         if (onStart) onStart(analysisMode, localDepth);
@@ -80,12 +84,31 @@ export const AnalysisSettingsModal: React.FC<AnalysisSettingsModalProps> = ({
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-zinc-800 bg-zinc-900/50">
+                {hasResults && onShowResults && (
+                    <div className="px-4 pt-2 pb-0 bg-zinc-900/50">
+                        <button
+                            onClick={() => {
+                                onShowResults();
+                                onClose();
+                            }}
+                            className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg font-bold flex items-center justify-center gap-2 transition-all border border-zinc-700"
+                        >
+                            <Activity size={18} /> 繼續查看分析結果
+                        </button>
+                        <div className="flex items-center gap-2 py-3 text-xs text-zinc-600">
+                            <div className="h-px bg-zinc-800 flex-1"></div>
+                            <span>或</span>
+                            <div className="h-px bg-zinc-800 flex-1"></div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="p-4 pt-0 border-t-0 bg-zinc-900/50 pb-4">
                     <button
                         onClick={handleConfirm}
                         className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-900 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                     >
-                        <Check size={18} /> 確定
+                        <Check size={18} /> {hasResults ? '重新開始分析' : '開始分析'}
                     </button>
                 </div>
             </div>

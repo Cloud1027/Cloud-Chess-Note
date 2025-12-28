@@ -738,6 +738,12 @@ const App: React.FC = () => {
                             localDepth={analysis.localDepth}
                             setLocalDepth={analysis.setLocalDepth}
                             onStart={handleStartAnalysis}
+                            hasResults={analysis.results.length > 0}
+                            onShowResults={() => {
+                                setDesktopRightPanel('analysis');
+                                setMobileTab('analysis');
+                                setShowAnalysisSettings(false);
+                            }}
                         />
 
                         {isMobilePortrait && mobileTab === 'tabs' && (
