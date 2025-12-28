@@ -54,6 +54,19 @@ export class LocalEngine {
     public async init(): Promise<void> {
         if (this.isReady) return;
 
+        // Diagnostic Checks
+        if (!window.crossOriginIsolated) {
+            console.error("CRITICAL: Page is NOT crossOriginIsolated. SharedArrayBuffer will fail.");
+            alert("引擎啟動失敗：環境安全性不足 (Missing Cross-Origin Isolation)。\n這通常是因為伺服器 Header 設定遺失。");
+            return Promise.reject("Missing Cross-Origin Isolation");
+        }
+        if (typeof SharedArrayBuffer === 'undefined') {
+            console.error("CRITICAL: SharedArrayBuffer is undefined.");
+            alert("引擎啟動失敗：瀏覽器不支援 SharedArrayBuffer。");
+            return Promise.reject("Missing SharedArrayBuffer");
+        }
+        console.log("Engine Init: Security Checks Passed (COOP/COEP Active)");
+
         return new Promise((resolve, reject) => {
             // Pikafish.js uses Module.onReceiveStdout for output
             // and Module.sendCommand for input (set up after loading)
@@ -140,7 +153,7 @@ export class LocalEngine {
             this.sendCommand('setoption name Threads value 4');
             this.sendCommand('setoption name Hash value 64');
             // Explicitly point to the NNUE file loaded by the JS wrapper
-            this.sendCommand('setoption name EvalFile value pikafish.nnue');
+            // this.sendCommand('setoption name EvalFile value pikafish.nnue');
         }
 
         if (line.startsWith('info') && line.includes('depth') && line.includes('score')) {
