@@ -38,13 +38,33 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const panelContainerRef = useRef<HTMLDivElement>(null);
 
-    // Helper to handle clicks
+    // Manual Double Tap Detection Refs
+    const lastClickTimeRef = useRef<number>(0);
+    const lastClickNodeIdRef = useRef<string | null>(null);
+
+    // Unified Click Handler (Handles Single & Double Clicks)
     const handleNodeClick = (node: MoveNode) => {
-        if (onNodeClick) onNodeClick(node);
-        else onJumpToMove(node);
+        const now = Date.now();
+        const timeDiff = now - lastClickTimeRef.current;
+
+        if (timeDiff < 300 && lastClickNodeIdRef.current === node.id) {
+            // Double Click Detected
+            if (onNodeDoubleClick) onNodeDoubleClick(node);
+
+            // Reset
+            lastClickTimeRef.current = 0;
+            lastClickNodeIdRef.current = null;
+        } else {
+            // Single Click
+            lastClickTimeRef.current = now;
+            lastClickNodeIdRef.current = node.id;
+
+            if (onNodeClick) onNodeClick(node);
+            else onJumpToMove(node);
+        }
     };
 
-    // Helper to handle double clicks
+    // Kept for backward compatibility if needed, but unused in new logic
     const handleNodeDoubleClick = (node: MoveNode) => {
         if (onNodeDoubleClick) onNodeDoubleClick(node);
     };
@@ -210,7 +230,6 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
                             {/* Root Node Row */}
                             <tr
                                 onClick={() => handleNodeClick(rootNode)}
-                                onDoubleClick={() => handleNodeDoubleClick(rootNode)}
                                 className={`cursor-pointer group transition-colors ${isRoot ? 'bg-blue-900/30' : 'hover:bg-zinc-800/30'}`}
                             >
                                 <td className="px-2 py-2 text-center text-zinc-600 font-mono text-xs">0</td>
@@ -245,7 +264,6 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
                                             <div
                                                 className={`cursor-pointer px-2 py-1.5 rounded flex items-center justify-between group ${isCurrent ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-zinc-800/50'}`}
                                                 onClick={() => handleNodeClick(node)}
-                                                onDoubleClick={() => handleNodeDoubleClick(node)}
                                             >
                                                 <span className="font-medium truncate">{node.move.notation}</span>
                                                 <div className="flex items-center gap-1.5 shrink-0">
@@ -311,7 +329,6 @@ const MoveListPanel: React.FC<MoveListPanelProps> = ({
 
                                         <div className="flex items-center gap-2 flex-1 cursor-pointer min-w-0"
                                             onClick={() => handleNodeClick(sibling)}
-                                            onDoubleClick={() => handleNodeDoubleClick(sibling)}
                                         >
                                             <span className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${isSelected ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
                                                 {String.fromCharCode(65 + idx)}

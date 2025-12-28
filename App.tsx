@@ -255,9 +255,8 @@ const App: React.FC = () => {
 
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
 
-                        // Create New Tab
                         const newId = `game-${Date.now()}`;
-                        const newRootId = newRoot.id; // Use the regenerated ID
+                        const newRootId = newRoot.id;
 
                         const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
                         const nextColor = allColors[tabs.length % allColors.length] as any;
@@ -746,6 +745,7 @@ const App: React.FC = () => {
                                 isOpen={true} onClose={() => setMobileTab('none')}
                                 tabs={tabs} activeTabId={activeTabId} onSwitch={handleSwitchTab}
                                 onAdd={handleAddTab} onDelete={handleDeleteTab}
+                                onRename={handleRenameTab} onColorChange={handleColorChange}
                             />
                         )}
 

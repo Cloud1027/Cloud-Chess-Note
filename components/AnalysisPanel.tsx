@@ -152,7 +152,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                     {/* Re-analyze Button */}
                     <button
                         onClick={() => startLocalAnalysis()}
-                        className="absolute top-2 right-2 z-10 text-[10px] text-zinc-400 bg-zinc-900/80 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700 transition-colors flex items-center gap-1 shadow-lg"
+                        className="absolute bottom-2 left-2 z-10 text-[10px] text-zinc-400 bg-zinc-900/80 hover:bg-zinc-800 px-2 py-1 rounded border border-zinc-700 transition-colors flex items-center gap-1 shadow-lg hover:text-amber-400 hover:border-amber-500/50"
                         title="重新分析"
                     >
                         <RotateCw size={12} />
