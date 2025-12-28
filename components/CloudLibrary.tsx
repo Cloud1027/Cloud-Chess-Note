@@ -357,7 +357,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                         return (
                                             <div key={game.id} className="group bg-zinc-950 border border-zinc-800 hover:border-zinc-600 rounded-xl p-3 transition-all hover:shadow-lg flex gap-4">
                                                 {/* Left: Mini Board Preview */}
-                                                <div className="w-32 h-36 shrink-0 bg-[#f2e1c2] rounded-lg overflow-hidden border border-zinc-800 shadow-inner relative group-hover:scale-105 transition-transform origin-left cursor-pointer" onClick={() => handleLoad(game)}>
+                                                <div className="w-24 h-28 md:w-32 md:h-36 shrink-0 bg-[#f2e1c2] rounded-lg overflow-hidden border border-zinc-800 shadow-inner relative group-hover:scale-105 transition-transform origin-left cursor-pointer" onClick={() => handleLoad(game)}>
                                                     <MiniBoardPreview fen={game.fen || "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1"} />
                                                     {/* Hover Overlay */}
                                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -387,7 +387,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                             )}
                                                         </div>
 
-                                                        <div className="flex flex-col gap-1 mt-2">
+                                                        <div className="hidden md:flex flex-col gap-1 mt-2">
                                                             <div className="text-xs text-zinc-500 flex items-center gap-1.5">
                                                                 <User size={12} />
                                                                 <span className="truncate max-w-[12rem]">{isOwner ? "我自己" : `使用者 ${game.owner_id.slice(0, 6)}...`}</span>
