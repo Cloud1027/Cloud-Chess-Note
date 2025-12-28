@@ -11,7 +11,8 @@ export default async function handler(req, res) {
     // 1. Fetch the original index.html
     // In Vercel, we can fetch the deployment's own URL or read from file system if we know the path.
     // Using fetch is often more robust in serverless for retrieving the static asset.
-    const appUrl = `https://${process.env.VERCEL_URL || 'cloud-chess-note.vercel.app'}`;
+    // Force production domain to avoid "Login to Vercel" on preview URLs
+    const appUrl = 'https://cloud-chess-note.vercel.app';
     let html = '';
 
     try {
