@@ -34,7 +34,47 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
     const [indexErrorLink, setIndexErrorLink] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // ... (rest of useEffects)
+    // Fetch Data on Tab Change or User Change
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const fetchData = async () => {
+            setIsLoadingData(true);
+            setErrorMessage(null);
+            setIndexErrorLink(null);
+
+            try {
+                if (activeTab === 'my') {
+                    if (user) {
+                        try {
+                            const data = await getUserGames(user.uid);
+                            setGames(data);
+                        } catch (e: any) {
+                            // Check for index error
+                            if (e.message && e.message.includes('requires an index')) {
+                                setIndexErrorLink(e.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/)?.[0]);
+                            } else {
+                                throw e;
+                            }
+                        }
+                    } else {
+                        setGames([]);
+                    }
+                } else {
+                    // public
+                    const data = await getPublicGames();
+                    setGames(data);
+                }
+            } catch (error: any) {
+                console.error("Fetch error:", error);
+                setErrorMessage(error.message);
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+
+        fetchData();
+    }, [isOpen, activeTab, user]);
 
     // Save Current Game
     const handleSaveGame = async () => {
