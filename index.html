@@ -160,6 +160,19 @@
   </script>
 
   <script type="module" src="/index.tsx"></script>
+
+  <script>
+    // EMERGENCY CLEANUP: Unregister any existing Service Workers (coi-serviceworker)
+    // This is required because the old SW persists even after removing the script tag.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (let registration of registrations) {
+          console.log('Unregistering SW:', registration);
+          registration.unregister();
+        }
+      });
+    }
+  </script>
 </body>
 
 </html>
