@@ -67,6 +67,22 @@ export class LocalEngine {
         }
         console.log("Engine Init: Security Checks Passed (COOP/COEP Active)");
 
+        console.log("Engine Base Path:", this.engineBasePath);
+        const nnuePath = this.engineBasePath + 'pikafish.nnue';
+
+        try {
+            console.log("Checking NNUE availability at:", nnuePath);
+            const response = await fetch(nnuePath, { method: 'HEAD' });
+            if (!response.ok) {
+                throw new Error(`NNUE file not found (${response.status}) at ${nnuePath}`);
+            }
+            console.log("NNUE file found/accessible.");
+        } catch (e: any) {
+            console.error("NNUE Fetch Error:", e);
+            alert(`引擎檔案遺失 (NNUE Not Found)\n路徑: ${nnuePath}\n錯誤: ${e.message}`);
+            return Promise.reject(e);
+        }
+
         return new Promise((resolve, reject) => {
             // Pikafish.js uses Module.onReceiveStdout for output
             // and Module.sendCommand for input (set up after loading)
