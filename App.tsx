@@ -244,11 +244,17 @@ const App: React.FC = () => {
                             return;
                         }
 
-                        // PLAN A + SANITIZATION:
-                        // 1. Deep Copy to break references
+                        // HYBRID PLAN: Standardize Root ID + Limit Sanitize
+                        // 1. Deep Copy
                         const newRoot = JSON.parse(JSON.stringify(loadedRoot));
 
-                        // 2. Sanitize Tree (Fix dirty selectedChildId and parentId)
+                        // 2. FORCE Standard Local Root ID (Crucial for consistently identifying the 'Start')
+                        const newGameId = `game-${Date.now()}`;
+                        const newRootId = `root-${newGameId}`;
+                        newRoot.id = newRootId;
+                        newRoot.parentId = null;
+
+                        // 3. Sanitize Tree (Fix dirty selectedChildId and parentId)
                         const sanitizeTree = (node: any, expectedParentId: string | null) => {
                             // Fix Parent ID
                             if (node.parentId !== expectedParentId) {
@@ -262,7 +268,7 @@ const App: React.FC = () => {
                                 // Clean up invalid selectedChildId
                                 if (node.selectedChildId && !childIds.has(node.selectedChildId)) {
                                     console.warn(`Fixed dirty selectedChildId in node ${node.id}`);
-                                    node.selectedChildId = node.children[0].id; // Fallback to first child
+                                    node.selectedChildId = node.children[0].id;
                                 }
 
                                 // Recurse
@@ -273,14 +279,13 @@ const App: React.FC = () => {
                             }
                         };
 
-                        sanitizeTree(newRoot, null); // Start sanitization from Root
+                        sanitizeTree(newRoot, null); // Start sanitization from newly renamed Root
 
-                        // Note: We do NOT rename newRoot.id (keep structural integrity).
 
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
 
-                        // Generate a fresh Tab ID
-                        const newTabId = `game-${Date.now()}`;
+                        // newId matches newRootId derivation
+                        const newTabId = newGameId;
 
                         const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
                         const nextColor = (allColors.find(c => !tabs.map(t => t.colorTag).includes(c as any)) || allColors[tabs.length % allColors.length]) as any;
@@ -289,7 +294,7 @@ const App: React.FC = () => {
                             id: newTabId,
                             title: loadedMeta.title || '雲端分享',
                             rootNode: newRoot,
-                            currentNodeId: newRoot.id, // Point to the preserved (and sanitized) Root ID
+                            currentNodeId: newRootId, // Point to the NEW Standard Root ID
                             metadata: loadedMeta,
                             createdAt: Date.now(),
                             colorTag: nextColor,
