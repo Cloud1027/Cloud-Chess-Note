@@ -402,34 +402,7 @@ const App: React.FC = () => {
     const [showCloudLibrary, setShowCloudLibrary] = useState(false);
 
     // URL Query Param Handler for Shared Games
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const gameId = params.get('id');
-        if (gameId) {
-            import('./services/firebase').then(async ({ getCloudGameById }) => {
-                try {
-                    const game = await getCloudGameById(gameId);
-                    if (game && game.rootNode) {
-                        const loadedRoot = JSON.parse(game.rootNode);
-                        const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
-
-                        // Force update to a new tab or current tab
-                        setMetadata(loadedMeta);
-                        setRootNode({ ...loadedRoot, id: 'root-' + Date.now() });
-
-                        // Clean URL without refresh
-                        window.history.replaceState({}, document.title, window.location.pathname);
-
-                        // Maybe show a small toast?
-                        // notification.show(...) // Need to construct notification object, but simple load is fine.
-                    }
-                } catch (e) {
-                    console.error("Failed to load shared game", e);
-                    alert("載入分享棋譜失敗");
-                }
-            });
-        }
-    }, []);
+    // [Deleted duplicate URL handler]
 
     // Visual Sync: Board follows analysis progress (silent)
     useEffect(() => {
