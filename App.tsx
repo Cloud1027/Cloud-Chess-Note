@@ -244,15 +244,38 @@ const App: React.FC = () => {
                             return;
                         }
 
-                        // PLAN A: Direct Deep Copy (No ID Regeneration)
-                        // This preserves the exact internal structure, parent links, and selectedChildIds.
-                        // We only ensure the root node has no parent.
-                        const newRoot = JSON.parse(JSON.stringify(loadedRoot)); // Deep Clone
-                        newRoot.parentId = null;
+                        // PLAN A + SANITIZATION:
+                        // 1. Deep Copy to break references
+                        const newRoot = JSON.parse(JSON.stringify(loadedRoot));
 
-                        // Note: We do NOT rename newRoot.id here if we want to preserve internal integrity.
-                        // However, to treat it as a "New Tab", we need a unique GameTab ID.
-                        // The rootNode.id can remain whatever it was (even 'node-xyz' or 'root-old').
+                        // 2. Sanitize Tree (Fix dirty selectedChildId and parentId)
+                        const sanitizeTree = (node: any, expectedParentId: string | null) => {
+                            // Fix Parent ID
+                            if (node.parentId !== expectedParentId) {
+                                node.parentId = expectedParentId;
+                            }
+
+                            // Validate Children & SelectedChildId
+                            if (node.children && node.children.length > 0) {
+                                const childIds = new Set(node.children.map((c: any) => c.id));
+
+                                // Clean up invalid selectedChildId
+                                if (node.selectedChildId && !childIds.has(node.selectedChildId)) {
+                                    console.warn(`Fixed dirty selectedChildId in node ${node.id}`);
+                                    node.selectedChildId = node.children[0].id; // Fallback to first child
+                                }
+
+                                // Recurse
+                                node.children.forEach((c: any) => sanitizeTree(c, node.id));
+                            } else {
+                                node.children = [];
+                                node.selectedChildId = null;
+                            }
+                        };
+
+                        sanitizeTree(newRoot, null); // Start sanitization from Root
+
+                        // Note: We do NOT rename newRoot.id (keep structural integrity).
 
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
 
@@ -266,7 +289,7 @@ const App: React.FC = () => {
                             id: newTabId,
                             title: loadedMeta.title || '雲端分享',
                             rootNode: newRoot,
-                            currentNodeId: newRoot.id, // Point to the preserved Root ID
+                            currentNodeId: newRoot.id, // Point to the preserved (and sanitized) Root ID
                             metadata: loadedMeta,
                             createdAt: Date.now(),
                             colorTag: nextColor,
