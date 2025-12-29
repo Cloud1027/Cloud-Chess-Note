@@ -37,7 +37,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     showCoords: true,
     animationSpeed: 300,
     boardSize: 'large',
-    showEngineArrows: true
+    showEngineArrows: true,
+    engineThreads: 4 // Default to 4
 };
 
 const DEFAULT_METADATA: GameMetadata = {
@@ -623,6 +624,7 @@ const App: React.FC = () => {
                             onOpenAnalysis={() => setShowAnalysisSettings(true)} // UPDATED
                             isEnabled={isCloudEnabled} onToggleEnabled={setIsCloudEnabled}
                             onEngineStatsUpdate={setEngineStats}
+                            engineThreads={settings.engineThreads}
                         />
                     </>
                 }

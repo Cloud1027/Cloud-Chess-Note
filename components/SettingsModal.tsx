@@ -153,6 +153,41 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                         </div>
                     </div>
 
+                    <hr className="border-zinc-800" />
+
+                    {/* 5. Engine Threads */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
+                                    <Activity size={20} />
+                                </div>
+                                <div>
+                                    <div className="font-bold text-zinc-200">引擎核心數 (Threads)</div>
+                                    <div className="text-xs text-zinc-500">{settings.engineThreads || 4} 核心 (重啟引擎生效)</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-1">
+                            <input
+                                type="range"
+                                min="1"
+                                max="16" // Allow up to 16 for powerful desktops
+                                step="1"
+                                value={settings.engineThreads || 4}
+                                onChange={(e) => handleChange('engineThreads', parseInt(e.target.value))}
+                                className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                            />
+                            <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+                                <span>1 (手機/省電)</span>
+                                <span>16 (高性能)</span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 mt-1">
+                                * iOS 用戶或出現安全錯誤時，請手動設為 1 核心。
+                            </div>
+                        </div>
+                    </div>
+
                     {/* 5. Board Size */}
                     <div className="space-y-2">
                         <div className="font-bold text-zinc-200">棋盤大小</div>

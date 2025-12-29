@@ -112,4 +112,5 @@ export interface AppSettings {
   animationSpeed: number; // in ms, default 300
   boardSize: 'small' | 'medium' | 'large';
   showEngineArrows: boolean; // Toggle for engine analysis arrows
+  engineThreads: number; // Number of threads for the engine
 }

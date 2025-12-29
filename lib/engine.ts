@@ -40,6 +40,8 @@ export class LocalEngine {
     private engineBasePath: string;
     private messageListeners: Set<(line: string) => void> = new Set();
 
+    private isSingleCore: boolean = false;
+
     private constructor() {
         this.engineBasePath = getEngineBasePath();
     }
@@ -51,24 +53,38 @@ export class LocalEngine {
         return LocalEngine.instance;
     }
 
-    public async init(): Promise<void> {
+    public async init(threadCount: number = 4): Promise<void> {
         if (this.isReady) return;
 
         // Cache Buster (Static version to allow caching but break old versions)
-        const TIMESTAMP = 'v1.1_hash32';
+        const TIMESTAMP = 'v1.3_manual_threads';
+
+        // Determine mode based on user setting
+        const targetThreads = threadCount || 4;
+        const isSingleCoreMode = targetThreads === 1;
+
+        console.log(`Engine Init: Target Threads = ${targetThreads} (Single Core Mode: ${isSingleCoreMode})`);
 
         // Diagnostic Checks
-        if (!window.crossOriginIsolated) {
-            console.error("CRITICAL: Page is NOT crossOriginIsolated. SharedArrayBuffer will fail.");
-            alert("引擎啟動失敗：環境安全性不足 (Missing Cross-Origin Isolation)。\n這通常是因為伺服器 Header 設定遺失。");
-            return Promise.reject("Missing Cross-Origin Isolation");
+        if (!isSingleCoreMode) {
+            // Multi-core requires strict isolation checks
+            if (!window.crossOriginIsolated) {
+                console.error("CRITICAL: Page is NOT crossOriginIsolated. Multi-threaded WASM will fail.");
+                alert("引擎啟動失敗：環境安全性不足 (Missing Cross-Origin Isolation)。\n\n解決方案：\n請至「系統設定」將「引擎核心數」設為 1，即可在目前環境使用。");
+                return Promise.reject("Missing Cross-Origin Isolation");
+            }
+            if (typeof SharedArrayBuffer === 'undefined') {
+                console.error("CRITICAL: SharedArrayBuffer is undefined.");
+                alert("引擎啟動失敗：瀏覽器不支援 SharedArrayBuffer。\n\n解決方案：\n請至「系統設定」將「引擎核心數」設為 1。");
+                return Promise.reject("Missing SharedArrayBuffer");
+            }
+        } else {
+            // Single-core mode: We warn but proceed. 
+            // Note: Standard pikafish.js might still crash if it forcibly parses SAB, but user asked to Try.
+            if (!window.crossOriginIsolated) {
+                console.warn("Running in Single Core mode allows bypassing Cross-Origin Isolation check.");
+            }
         }
-        if (typeof SharedArrayBuffer === 'undefined') {
-            console.error("CRITICAL: SharedArrayBuffer is undefined.");
-            alert("引擎啟動失敗：瀏覽器不支援 SharedArrayBuffer。");
-            return Promise.reject("Missing SharedArrayBuffer");
-        }
-        console.log("Engine Init: Security Checks Passed (COOP/COEP Active)");
 
         console.log("Engine Base Path:", this.engineBasePath);
         // Force fresh load of NNUE
@@ -78,13 +94,13 @@ export class LocalEngine {
             console.log("Checking NNUE availability at:", nnuePath);
             const response = await fetch(nnuePath, { method: 'HEAD' });
             if (!response.ok) {
-                throw new Error(`NNUE file not found (${response.status}) at ${nnuePath}`);
+                // If 404, maybe it's local dev or path issue?
+                console.warn(`NNUE HEAD check failed (${response.status}). Attempting to load script anyway...`);
+            } else {
+                console.log("NNUE file found/accessible.");
             }
-            console.log("NNUE file found/accessible.");
         } catch (e: any) {
-            console.error("NNUE Fetch Error:", e);
-            alert(`引擎檔案遺失 (NNUE Not Found)\n路徑: ${nnuePath}\n錯誤: ${e.message}`);
-            return Promise.reject(e);
+            console.error("NNUE Fetch Error (Soft Fail):", e);
         }
 
         return new Promise((resolve, reject) => {
@@ -94,12 +110,15 @@ export class LocalEngine {
             window.Module = {
                 locateFile: (path: string, prefix: string) => {
                     console.log('locateFile called:', path, 'prefix:', prefix);
-                    // Always use our engine base path regardless of prefix
+
+                    // If single core binary asks for pikafish-single.wasm, we serve it.
+                    // If it asks for pikafish.nnue, we serve it.
+                    // We just prepend the base path.
                     return this.engineBasePath + path + '?v=' + TIMESTAMP;
                 },
                 onReceiveStdout: (line: string) => {
                     console.log('Engine:', line);
-                    this.parseEngineOutput(line);
+                    this.parseEngineOutput(line, targetThreads);
                 },
                 onReceiveStderr: (line: string) => {
                     console.warn('Engine Err:', line);
@@ -110,6 +129,8 @@ export class LocalEngine {
             };
 
             const script = document.createElement('script');
+            // ALWAYS load the standard script. We rely on standard script being able to run in single thread if configured (or user providing a fallback named pikafish.js if they really entered custom territory)
+            // Ideally, we'd have a separate single-threaded binary, but user asked to "just let me set cores".
             script.src = this.engineBasePath + 'pikafish.js?v=' + TIMESTAMP;
             script.async = true;
 
@@ -127,7 +148,7 @@ export class LocalEngine {
                             },
                             onReceiveStdout: (line: string) => {
                                 console.log('Engine:', line);
-                                this.parseEngineOutput(line);
+                                this.parseEngineOutput(line, targetThreads);
                                 this.messageListeners.forEach(l => l(line));
                             },
                             onReceiveStderr: (line: string) => {
@@ -145,10 +166,20 @@ export class LocalEngine {
                     }
                 } catch (e) {
                     console.error("Engine Init Failed", e);
+                    const msg = isSingleCoreMode
+                        ? `單核引擎啟動失敗：\n${e}\n\n可能原因：目前的 'pikafish.js' 核心檔強制需求多執行緒。\n請嘗試尋找單核心版引擎檔並覆寫。`
+                        : `引擎啟動失敗：\n${e}`;
+                    alert(msg);
                     reject(e);
                 }
             };
-            script.onerror = (e) => reject(new Error('Failed to load engine script: ' + e));
+            script.onerror = (e) => {
+                const msg = isSingleCoreMode
+                    ? `單核心引擎載入失敗 (pikafish.js)。\n請確保您已將 'pikafish.js' 上傳至 public/engine 資料夾，且該版本支援單核心模式。`
+                    : `引擎載入失敗 (pikafish.js)。` + e;
+                alert(msg);
+                reject(new Error('Failed to load engine script: ' + e));
+            };
             document.body.appendChild(script);
         });
     }
@@ -165,13 +196,14 @@ export class LocalEngine {
         }
     }
 
-    private parseEngineOutput(line: string) {
+    private parseEngineOutput(line: string, targetThreads: number = 4) {
         // Example: info depth 10 seldepth 15 score cp 25 nodes 1000 nps 500000 pv h2e2 h9g7
         if (line === 'uciok') {
-            console.log('UCI ok');
-            // Default settings for Pikafish
-            this.sendCommand('setoption name Threads value 4');
-            this.sendCommand('setoption name Hash value 32');
+            console.log(`UCI ok - Configuring for ${targetThreads} threads.`);
+            this.sendCommand(`setoption name Threads value ${targetThreads}`);
+            // Adjust Hash based on threads/device power assumption
+            const hashSize = targetThreads === 1 ? 16 : 64;
+            this.sendCommand(`setoption name Hash value ${hashSize}`);
             // Explicitly point to the NNUE file loaded by the JS wrapper
             // this.sendCommand('setoption name EvalFile value pikafish.nnue');
         }

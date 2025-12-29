@@ -16,8 +16,10 @@ interface CloudPanelProps {
     isCompact?: boolean;
     forcedMode?: 'cloud' | 'local';
     // Compact Navigation Props
+    // Compact Navigation Props
     onNavigate?: (direction: 'prev' | 'next') => void;
     onMenu?: () => void;
+    engineThreads?: number;
 }
 
 const CloudPanel: React.FC<CloudPanelProps> = ({
@@ -31,7 +33,8 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
     isCompact = false,
     forcedMode,
     onNavigate,
-    onMenu
+    onMenu,
+    engineThreads = 4, // Default to 4 if not provided
 }) => {
     const [mode, setMode] = useState<'cloud' | 'local'>('cloud');
 
@@ -54,13 +57,15 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
         if (mode === 'local' && !engineRef.current) {
             const initEngine = async () => {
                 const engine = LocalEngine.getInstance();
-                await engine.init();
+                await engine.init(engineThreads);
                 engineRef.current = engine;
                 setEngineReady(true);
             };
             initEngine();
         }
-    }, [mode]);
+    }, [mode, engineThreads]); // Re-init if threads change? init() has a guard if(isReady) return; so we might need a force reinit mechanism if user changes threads mid-session.
+    // For now, engine.init will just return if ready. If user wants to change threads, they might need to reload page or we implement re-init logic.
+    // Given the complexity, asking user to refresh or re-opening app is standard. Added (重啟引擎生效) in UI.
 
     // Handle Local Analysis Trigger
     useEffect(() => {
