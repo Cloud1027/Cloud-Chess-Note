@@ -244,44 +244,20 @@ const App: React.FC = () => {
                             return;
                         }
 
-                        // FIXED: 2-Pass ID Regeneration with Enforced Parent Consistency
-                        const idMap = new Map<string, string>();
+                        // PLAN A: Direct Deep Copy (No ID Regeneration)
+                        // This preserves the exact internal structure, parent links, and selectedChildIds.
+                        // We only ensure the root node has no parent.
+                        const newRoot = JSON.parse(JSON.stringify(loadedRoot)); // Deep Clone
+                        newRoot.parentId = null;
 
-                        // Generate Root ID specifically
-                        const newGameId = `game-${Date.now()}`;
-                        const newRootId = `root-${newGameId}`;
-
-                        const mapIds = (node: any, isRoot: boolean) => {
-                            const newId = isRoot ? newRootId : `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                            idMap.set(node.id, newId);
-                            if (node.children) node.children.forEach((c: any) => mapIds(c, false));
-                        };
-                        mapIds(loadedRoot, true);
-
-                        const rebuildTree = (node: any, newParentId: string | null): any => {
-                            const newId = idMap.get(node.id)!;
-                            let newSelectedChildId = node.selectedChildId;
-                            if (newSelectedChildId && idMap.has(newSelectedChildId)) {
-                                newSelectedChildId = idMap.get(newSelectedChildId);
-                            } else {
-                                newSelectedChildId = undefined;
-                            }
-                            return {
-                                ...node,
-                                id: newId,
-                                parentId: newParentId, // Force correct parentId
-                                selectedChildId: newSelectedChildId,
-                                children: node.children ? node.children.map((c: any) => rebuildTree(c, newId)) : []
-                            };
-                        };
-
-                        const newRoot = rebuildTree(loadedRoot, null);
-                        newRoot.parentId = null; // Ensure root has no parent
+                        // Note: We do NOT rename newRoot.id here if we want to preserve internal integrity.
+                        // However, to treat it as a "New Tab", we need a unique GameTab ID.
+                        // The rootNode.id can remain whatever it was (even 'node-xyz' or 'root-old').
 
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
 
-                        // newId matches newRootId derivation
-                        const newTabId = newGameId;
+                        // Generate a fresh Tab ID
+                        const newTabId = `game-${Date.now()}`;
 
                         const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
                         const nextColor = (allColors.find(c => !tabs.map(t => t.colorTag).includes(c as any)) || allColors[tabs.length % allColors.length]) as any;
@@ -290,7 +266,7 @@ const App: React.FC = () => {
                             id: newTabId,
                             title: loadedMeta.title || '雲端分享',
                             rootNode: newRoot,
-                            currentNodeId: newRootId,
+                            currentNodeId: newRoot.id, // Point to the preserved Root ID
                             metadata: loadedMeta,
                             createdAt: Date.now(),
                             colorTag: nextColor,
