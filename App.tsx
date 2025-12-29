@@ -246,12 +246,17 @@ const App: React.FC = () => {
 
                         // FIXED: 2-Pass ID Regeneration with Enforced Parent Consistency
                         const idMap = new Map<string, string>();
-                        const mapIds = (node: any) => {
-                            const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                        // Generate Root ID specifically
+                        const newGameId = `game-${Date.now()}`;
+                        const newRootId = `root-${newGameId}`;
+
+                        const mapIds = (node: any, isRoot: boolean) => {
+                            const newId = isRoot ? newRootId : `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                             idMap.set(node.id, newId);
-                            if (node.children) node.children.forEach(mapIds);
+                            if (node.children) node.children.forEach((c: any) => mapIds(c, false));
                         };
-                        mapIds(loadedRoot);
+                        mapIds(loadedRoot, true);
 
                         const rebuildTree = (node: any, newParentId: string | null): any => {
                             const newId = idMap.get(node.id)!;
@@ -275,14 +280,14 @@ const App: React.FC = () => {
 
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
 
-                        const newId = `game-${Date.now()}`;
-                        const newRootId = newRoot.id;
+                        // newId matches newRootId derivation
+                        const newTabId = newGameId;
 
                         const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
-                        const nextColor = allColors[tabs.length % allColors.length] as any;
+                        const nextColor = (allColors.find(c => !tabs.map(t => t.colorTag).includes(c as any)) || allColors[tabs.length % allColors.length]) as any;
 
                         const newTab: GameTab = {
-                            id: newId,
+                            id: newTabId,
                             title: loadedMeta.title || '雲端分享',
                             rootNode: newRoot,
                             currentNodeId: newRootId,
@@ -293,7 +298,7 @@ const App: React.FC = () => {
                         };
 
                         setTabs(prev => [...prev, newTab]);
-                        handleSwitchTab(newId, newTab);
+                        handleSwitchTab(newTabId, newTab);
                         window.history.replaceState({}, '', '/'); // Clean URL
                     } else {
                         alert('找不到該分享的棋譜或是格式不正確。');
