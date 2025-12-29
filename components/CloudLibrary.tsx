@@ -66,6 +66,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
     const [password, setPassword] = useState('');
     const [authError, setAuthError] = useState<string | null>(null);
     const [isAuthLoading, setIsAuthLoading] = useState(false);
+    const [imgError, setImgError] = useState(false); // Handle broken avi
 
     const handleEmailLogin = async () => {
         if (!email || !password) return setAuthError("請輸入帳號密碼");
@@ -330,8 +331,13 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                         ) : user ? (
                             <div className="flex flex-row md:flex-col items-center gap-3">
                                 <div className="flex items-center md:flex-col gap-2 md:mb-2">
-                                    {user.photoURL ? (
-                                        <img src={user.photoURL} alt="Avatar" className="w-8 h-8 md:w-16 md:h-16 rounded-full border-2 border-green-500/30" />
+                                    {user.photoURL && !imgError ? (
+                                        <img
+                                            src={user.photoURL}
+                                            alt="Avatar"
+                                            className="w-8 h-8 md:w-16 md:h-16 rounded-full border-2 border-green-500/30"
+                                            onError={() => setImgError(true)}
+                                        />
                                     ) : (
                                         <div className="w-8 h-8 md:w-16 md:h-16 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500">
                                             <User size={16} className="md:w-8 md:h-8" />

@@ -63,7 +63,11 @@ export class LocalEngine {
         const targetThreads = threadCount || 4;
         const isSingleCoreMode = targetThreads === 1;
 
-        console.log(`Engine Init: Target Threads = ${targetThreads} (Single Core Mode: ${isSingleCoreMode})`);
+        // Determine engine script based on mode
+        const engineScript = isSingleCoreMode ? 'pikafish-single.js' : 'pikafish.js';
+
+        console.log(`Engine Init: Target Threads = ${targetThreads} (Mode: ${isSingleCoreMode ? 'Single Core' : 'Multi Core'})`);
+        console.log(`Engine Script: ${engineScript}`);
 
         // Diagnostic Checks
         if (!isSingleCoreMode) {
@@ -112,8 +116,6 @@ export class LocalEngine {
                     console.log('locateFile called:', path, 'prefix:', prefix);
 
                     // If single core binary asks for pikafish-single.wasm, we serve it.
-                    // If it asks for pikafish.nnue, we serve it.
-                    // We just prepend the base path.
                     return this.engineBasePath + path + '?v=' + TIMESTAMP;
                 },
                 onReceiveStdout: (line: string) => {
@@ -129,9 +131,7 @@ export class LocalEngine {
             };
 
             const script = document.createElement('script');
-            // ALWAYS load the standard script. We rely on standard script being able to run in single thread if configured (or user providing a fallback named pikafish.js if they really entered custom territory)
-            // Ideally, we'd have a separate single-threaded binary, but user asked to "just let me set cores".
-            script.src = this.engineBasePath + 'pikafish.js?v=' + TIMESTAMP;
+            script.src = this.engineBasePath + engineScript + '?v=' + TIMESTAMP;
             script.async = true;
 
             script.onload = async () => {
@@ -167,16 +167,16 @@ export class LocalEngine {
                 } catch (e) {
                     console.error("Engine Init Failed", e);
                     const msg = isSingleCoreMode
-                        ? `單核引擎啟動失敗：\n${e}\n\n可能原因：目前的 'pikafish.js' 核心檔強制需求多執行緒。\n請嘗試尋找單核心版引擎檔並覆寫。`
-                        : `引擎啟動失敗：\n${e}`;
+                        ? `單核引擎啟動失敗 (使用檔案: ${engineScript})：\n${e}\n\n可能原因：檔案不支援或損壞。`
+                        : `引擎啟動失敗 (使用檔案: ${engineScript})：\n${e}`;
                     alert(msg);
                     reject(e);
                 }
             };
             script.onerror = (e) => {
                 const msg = isSingleCoreMode
-                    ? `單核心引擎載入失敗 (pikafish.js)。\n請確保您已將 'pikafish.js' 上傳至 public/engine 資料夾，且該版本支援單核心模式。`
-                    : `引擎載入失敗 (pikafish.js)。` + e;
+                    ? `單核心引擎載入失敗 (${engineScript})。\n\n請確保您已上傳單核心版本並命名為 '${engineScript}'。`
+                    : `引擎載入失敗 (${engineScript})。` + e;
                 alert(msg);
                 reject(new Error('Failed to load engine script: ' + e));
             };
