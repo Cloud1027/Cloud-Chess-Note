@@ -827,21 +827,54 @@ const App: React.FC = () => {
                         return;
                     }
 
-                    // Open in NEW tab
-                    const newId = `game-${Date.now()}`;
-                    const newRootId = `root-${newId}`;
-                    const newRoot = { ...loadedRoot, id: newRootId };
+                    // HYBRID PLAN: Standardize Root ID + Limit Sanitize
+                    // 1. Deep Copy
+                    const newRoot = JSON.parse(JSON.stringify(loadedRoot));
 
-                    // Auto-assign next unused color (consistent with handleAddTab)
+                    // 2. FORCE Standard Local Root ID (Crucial for consistently identifying the 'Start')
+                    const newGameId = `game-${Date.now()}`;
+                    const newRootId = `root-${newGameId}`;
+                    newRoot.id = newRootId;
+                    newRoot.parentId = null;
+
+                    // 3. Sanitize Tree (Fix dirty selectedChildId and parentId)
+                    const sanitizeTree = (node: any, expectedParentId: string | null) => {
+                        // Fix Parent ID
+                        if (node.parentId !== expectedParentId) {
+                            node.parentId = expectedParentId;
+                        }
+
+                        // Validate Children & SelectedChildId
+                        if (node.children && node.children.length > 0) {
+                            const childIds = new Set(node.children.map((c: any) => c.id));
+
+                            // Clean up invalid selectedChildId
+                            if (node.selectedChildId && !childIds.has(node.selectedChildId)) {
+                                console.warn(`Fixed dirty selectedChildId in node ${node.id}`);
+                                node.selectedChildId = node.children[0].id;
+                            }
+
+                            // Recurse
+                            node.children.forEach((c: any) => sanitizeTree(c, node.id));
+                        } else {
+                            node.children = [];
+                            node.selectedChildId = null;
+                        }
+                    };
+
+                    sanitizeTree(newRoot, null); // Start sanitization from newly renamed Root
+
+                    // Generate a fresh Tab ID
+                    const newTabId = newGameId;
+
                     const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
-                    const usedColors = tabs.map(t => t.colorTag).filter(c => c && c !== 'none');
-                    const nextColor = (allColors.find(c => !usedColors.includes(c as any)) || allColors[tabs.length % allColors.length]) as any;
+                    const nextColor = (allColors.find(c => !tabs.map(t => t.colorTag).includes(c as any)) || allColors[tabs.length % allColors.length]) as any;
 
                     const newTab: any = { // Use any to avoid strict type checks here, or import GameTab
-                        id: newId,
+                        id: newTabId,
                         title: loadedMeta.title || '雲端棋譜',
                         rootNode: newRoot,
-                        currentNodeId: newRootId,
+                        currentNodeId: newRootId, // Point to the NEW Standard Root ID
                         metadata: loadedMeta,
                         createdAt: Date.now(),
                         colorTag: nextColor,
@@ -849,7 +882,7 @@ const App: React.FC = () => {
                     };
 
                     setTabs(prev => [...prev, newTab]);
-                    handleSwitchTab(newId, newTab);
+                    handleSwitchTab(newTabId, newTab);
                     setShowCloudLibrary(false);
                 }}
             />
