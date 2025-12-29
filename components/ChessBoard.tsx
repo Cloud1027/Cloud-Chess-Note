@@ -496,8 +496,53 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
                     const logicalC = isMirrored ? (8 - c) : c;
                     let val = 0;
                     if (isFlipped) {
-                        if (isTop) { val = logicalC + 1; text = toChineseNum(val); } else { val = logicalC + 1; text = val.toString(); }
+                        // Fliped: Red on Top, Black on Bottom
+                        // Top (Red): Left to Right 9 to 1
+                        // Bottom (Black): Right to Left 1 to 9 (which means left to right 9 to 1 visually in standard view, but here relative to board?)
+                        // Wait, Standard Xiangqi:
+                        // Red (Bottom): Right to Left 1-9
+                        // Black (Top): Right to Left 1-9 (from their perspective) -> Left to Right 1-9 (from viewer) if not flipped?
+                        // Actually standard: 
+                        // Bottom (Red): 9 8 7 6 5 4 3 2 1 (Left to Right) if using standard coords? No, it's 1 on Right. So 9...1
+                        // Top (Black): 1 2 3 4 5 6 7 8 9 (Left to Right)
+
+                        // If Flipped (Black Bottom):
+                        // Top (Red): 1 2 3 4 5 6 7 8 9 (Left to Right) -> Chinese Chars
+                        // Bottom (Black): 9 8 7 6 5 4 3 2 1 (Left to Right) -> Numbers 1-9?
+
+                        // Let's re-verify Standard View (Red Bottom):
+                        // Bottom: 9...1 (Left-Right). "九...一" or "9...1"? Red is usually Chinese.
+                        // Top: 1...9 (Left-Right). Black is usually Numbers.
+
+                        // Current Code (Non-flipped):
+                        // Top: val = logicalC + 1 (1..9). Text=val.toString(). Correct (Black).
+                        // Bottom: val = 9 - logicalC (9..1). Text=toChineseNum(val). Correct (Red).
+
+                        // Flipped View (Red Top, Black Bottom):
+                        // Top (Red): Should be 9..1 (Left-Right) ? Or from Red's perspective (Right to Left 1..9)?
+                        // If Red is Top, and we view from Black's side.
+                        // Black (Bottom): Should be 1..9 from Right to Left. So Left to Right is 9..1.
+                        // Red (Top): Should be 1..9 from Right to Left (their Right). So Left to Right is 1..9.
+
+                        // Let's check the bug request. "Black coordinates should be 1 to 9 from Right to Left".
+                        // Use 9 - logicalC produces 9..1 (Left to Right), which means 1 is on Right. Correct.
+
+                        if (isTop) {
+                            // Red is Top. From Viewer (Black's) perspective:
+                            // Red's Right is Viewer's Left. Red's Right is 'One'. So Viewer's Left is 'One'.
+                            // So Left to Right 1..9.
+                            val = logicalC + 1;
+                            text = toChineseNum(val);
+                        } else {
+                            // Black is Bottom. 
+                            // Black's Right is Viewer's Right. Black's Right is '1'.
+                            // So Viewer's Right is '1'. Left is '9'.
+                            // So Left to Right: 9..1.
+                            val = 9 - logicalC;
+                            text = val.toString();
+                        }
                     } else {
+                        // Standard (Red Bottom)
                         if (isTop) { val = logicalC + 1; text = val.toString(); } else { val = 9 - logicalC; text = toChineseNum(val); }
                     }
                     ctx.fillText(text, offsetX + c * gridSize, y);

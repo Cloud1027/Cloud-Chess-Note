@@ -228,29 +228,49 @@ const App: React.FC = () => {
             // Clean URL
             window.history.replaceState({}, '', '/');
             import('./services/firebase').then(({ getCloudGameById }) => {
-                getCloudGameById(sharedId).then(game => {
+                getCloudGameById(sharedId).then(async game => {
                     if (game && (game.rootNode || (game.fen && game.fen !== 'start'))) {
-                        const loadedRoot = game.rootNode ? JSON.parse(game.rootNode) : null;
+                        let jsonString = game.rootNode;
+                        // Check for compressed data
+                        if (typeof jsonString === 'string' && !jsonString.trim().startsWith('{') && !jsonString.trim().startsWith('[')) {
+                            const LZString = (await import('lz-string')).default;
+                            const decompressed = LZString.decompressFromUTF16(jsonString);
+                            if (decompressed) jsonString = decompressed;
+                        }
+
+                        const loadedRoot = jsonString ? JSON.parse(jsonString) : null;
                         if (!loadedRoot) {
                             alert('預覽模式僅支援完整存檔，此棋譜可能為舊版格式。');
                             return;
                         }
 
-                        // Recursive ID Regeneration for Full Fork
-                        const regenerateIds = (node: any): any => {
-                            const newLocalId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                            const newNode = { ...node, id: newLocalId };
-                            if (node.children) {
-                                newNode.children = node.children.map((c: any) => {
-                                    const child = regenerateIds(c);
-                                    child.parentId = newLocalId;
-                                    return child;
-                                });
+                        // FIXED: 2-Pass ID Regeneration
+                        const idMap = new Map<string, string>();
+                        const mapIds = (node: any) => {
+                            const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                            idMap.set(node.id, newId);
+                            if (node.children) node.children.forEach(mapIds);
+                        };
+                        mapIds(loadedRoot);
+
+                        const rebuildTree = (node: any): any => {
+                            const newId = idMap.get(node.id)!;
+                            let newSelectedChildId = node.selectedChildId;
+                            if (newSelectedChildId && idMap.has(newSelectedChildId)) {
+                                newSelectedChildId = idMap.get(newSelectedChildId);
+                            } else {
+                                newSelectedChildId = undefined;
                             }
-                            return newNode;
+                            return {
+                                ...node,
+                                id: newId,
+                                parentId: node.parentId && idMap.has(node.parentId) ? idMap.get(node.parentId) : null,
+                                selectedChildId: newSelectedChildId,
+                                children: node.children ? node.children.map(rebuildTree) : []
+                            };
                         };
 
-                        const newRoot = regenerateIds(loadedRoot);
+                        const newRoot = rebuildTree(loadedRoot);
                         newRoot.parentId = null; // Ensure root has no parent
 
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
@@ -833,7 +853,7 @@ const App: React.FC = () => {
                     // Auto-assign next unused color (consistent with handleAddTab)
                     const allColors = ['blue', 'green', 'red', 'orange', 'purple', 'teal', 'dark', 'pink', 'yellow', 'coffee'];
                     const usedColors = tabs.map(t => t.colorTag).filter(c => c && c !== 'none');
-                    const nextColor = allColors.find(c => !usedColors.includes(c)) || allColors[tabs.length % allColors.length];
+                    const nextColor = (allColors.find(c => !usedColors.includes(c as any)) || allColors[tabs.length % allColors.length]) as any;
 
                     const newTab: any = { // Use any to avoid strict type checks here, or import GameTab
                         id: newId,

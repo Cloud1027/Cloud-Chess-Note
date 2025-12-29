@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { MoveNode, Piece, Point, MemorizationConfig, MemorizationError, PieceColor } from '../types';

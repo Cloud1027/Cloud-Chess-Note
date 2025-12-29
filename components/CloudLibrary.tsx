@@ -7,6 +7,7 @@ import { MiniBoardPreview } from './MiniBoardPreview';
 import { fenToBoard } from '../lib/utils';
 // import { moveListToFen } from '../lib/utils'; // Unused
 import { GameTab } from '../types';
+import LZString from 'lz-string';
 
 // Helper: Remove voluminous boardState for storage
 const minimizeNode = (node: any): any => {
@@ -177,11 +178,15 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
         try {
             // Minimize tree to avoid payload limits
             const minimizedRoot = minimizeNode(currentTab.rootNode);
+            const jsonString = JSON.stringify(minimizedRoot);
+
+            // Compress using LZString
+            const compressed = LZString.compressToUTF16(jsonString);
 
             const gameData = {
                 title: saveTitle || '無標題',
                 fen: previewFen,
-                rootNode: JSON.stringify(minimizedRoot),
+                rootNode: compressed, // Store compressed string
                 metadata: {
                     ...currentTab.metadata,
                     title: saveTitle
@@ -239,10 +244,18 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
     const handleLoad = (game: any) => {
         try {
             // Parse the standardized format
-            // If legacy format (just moves), handle it. If new format (rootNode), parse it.
             let loadedRoot;
             if (game.rootNode) {
-                const parsedRoot = JSON.parse(game.rootNode);
+                let jsonString = game.rootNode;
+                // Check if compressed (basic check: not starting with { or [)
+                if (typeof jsonString === 'string' && !jsonString.trim().startsWith('{') && !jsonString.trim().startsWith('[')) {
+                    const decompressed = LZString.decompressFromUTF16(jsonString);
+                    if (decompressed) {
+                        jsonString = decompressed;
+                    }
+                }
+
+                const parsedRoot = JSON.parse(jsonString);
                 // Restore boardState logic
                 loadedRoot = restoreNode(parsedRoot, null);
 
@@ -252,7 +265,6 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                 });
             } else {
                 // Handle legacy or simple FEN only?
-                // For V1 assume new saves only.
                 alert("此格式暫不支援完整讀取 (可能為舊版資料)");
             }
             onClose();
@@ -414,7 +426,6 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                     {/* Right Panel: Game List */}
                     <div className="flex-1 flex flex-col bg-zinc-900 relative min-h-0">
 
-                        {/* Save Action Area (Only visible in 'My Games' when logged in) */}
                         {/* Save Action Area - Always Visible */}
                         <div className="flex flex-col border-b border-zinc-800 bg-zinc-900/50 backdrop-blur z-10">
                             {user ? (
