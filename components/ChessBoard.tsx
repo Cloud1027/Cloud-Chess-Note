@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { GameState, Piece, Point, PieceColor, MoveNode, AppSettings } from '../types';
 import { INITIAL_BOARD_SETUP } from '../constants';
-import { toChineseNum, getChineseNotation } from '../lib/utils';
+import { toChineseNum, getChineseNotation, fenToBoard } from '../lib/utils';
 
 interface ChessBoardProps {
     currentBoard?: (Piece | null)[][];
@@ -207,7 +207,11 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 
     // Handle Props Update & Trigger Animations
     useEffect(() => {
-        if (currentBoard) {
+        // LAZY HYDRATION: Fallback to FEN if board array is missing (Lite Mode)
+        const effectiveBoard = currentBoard || (currentNode?.fen ? fenToBoard(currentNode.fen).board : null);
+        const effectiveTurn = currentTurn || (currentNode?.fen ? fenToBoard(currentNode.fen).turn : 'red');
+
+        if (effectiveBoard) {
             // 1. Detect Move Animation
             const hasLastMoveChanged = lastMove && (!prevLastMoveRef.current ||
                 lastMove.from.r !== prevLastMoveRef.current.from.r ||
@@ -219,7 +223,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             if (hasLastMoveChanged) {
                 if (shouldAnimate) {
                     const prevBoard = prevBoardRef.current;
-                    const movingPiece = currentBoard[lastMove.to.r][lastMove.to.c];
+                    const movingPiece = effectiveBoard[lastMove.to.r][lastMove.to.c];
                     const animDuration = settings?.animationSpeed ?? 300;
 
                     if (movingPiece && animDuration > 0) {
@@ -248,11 +252,11 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             }
 
             // 2. Detect Check (Shake)
-            const playerUnderAttack = currentTurn || 'black';
-            if (isKingInCheck(currentBoard, playerUnderAttack)) {
+            const playerUnderAttack = effectiveTurn;
+            if (isKingInCheck(effectiveBoard, playerUnderAttack)) {
                 for (let r = 0; r < 10; r++) {
                     for (let c = 0; c < 9; c++) {
-                        const p = currentBoard[r][c];
+                        const p = effectiveBoard[r][c];
                         if (p && p.type === 'king' && p.color === playerUnderAttack) {
                             shakeRef.current = {
                                 active: true,
@@ -270,15 +274,15 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 
             setLocalState(prev => ({
                 ...prev,
-                board: currentBoard,
-                turn: currentTurn || 'red',
+                board: effectiveBoard,
+                turn: effectiveTurn,
                 // selectedPiece: null, // Don't clear here! Let the FEN-watcher handle clearing.
                 lastMove: lastMove || null
             }));
 
-            prevBoardRef.current = currentBoard;
+            prevBoardRef.current = effectiveBoard;
         }
-    }, [currentBoard, currentTurn, lastMove, settings?.animationSpeed, shouldAnimate]);
+    }, [currentBoard, currentTurn, lastMove, settings?.animationSpeed, shouldAnimate, currentNode?.fen]);
 
     const [dimensions, setDimensions] = useState({ width: 500, height: 600, gridSize: 50, offsetX: 50, offsetY: 50, dpr: 1 });
 

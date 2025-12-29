@@ -256,8 +256,13 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                 }
 
                 const parsedRoot = JSON.parse(jsonString);
-                // Restore boardState logic
-                loadedRoot = restoreNode(parsedRoot, null);
+
+                // [MOBILE OPTIMIZATION] Do NOT hydrate board here.
+                // Pass "Lite" data (without boardState arrays) to App.tsx.
+                // App.tsx stores this lightweight tree in tabs (LocalStorage).
+                // ChessBoard.tsx now supports Lazy Hydration (generates board on-the-fly from FEN).
+                // This prevents Mobile Safari QuotaExceededError (5MB limit) and crashes.
+                loadedRoot = parsedRoot;
 
                 onLoadGame({
                     rootNode: loadedRoot,
