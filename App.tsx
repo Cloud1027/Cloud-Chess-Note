@@ -244,7 +244,7 @@ const App: React.FC = () => {
                             return;
                         }
 
-                        // FIXED: 2-Pass ID Regeneration
+                        // FIXED: 2-Pass ID Regeneration with Enforced Parent Consistency
                         const idMap = new Map<string, string>();
                         const mapIds = (node: any) => {
                             const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -253,7 +253,7 @@ const App: React.FC = () => {
                         };
                         mapIds(loadedRoot);
 
-                        const rebuildTree = (node: any): any => {
+                        const rebuildTree = (node: any, newParentId: string | null): any => {
                             const newId = idMap.get(node.id)!;
                             let newSelectedChildId = node.selectedChildId;
                             if (newSelectedChildId && idMap.has(newSelectedChildId)) {
@@ -264,13 +264,13 @@ const App: React.FC = () => {
                             return {
                                 ...node,
                                 id: newId,
-                                parentId: node.parentId && idMap.has(node.parentId) ? idMap.get(node.parentId) : null,
+                                parentId: newParentId, // Force correct parentId
                                 selectedChildId: newSelectedChildId,
-                                children: node.children ? node.children.map(rebuildTree) : []
+                                children: node.children ? node.children.map((c: any) => rebuildTree(c, newId)) : []
                             };
                         };
 
-                        const newRoot = rebuildTree(loadedRoot);
+                        const newRoot = rebuildTree(loadedRoot, null);
                         newRoot.parentId = null; // Ensure root has no parent
 
                         const loadedMeta = game.metadata || { title: game.title, redName: game.redName, blackName: game.blackName };
