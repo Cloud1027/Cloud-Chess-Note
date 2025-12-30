@@ -380,6 +380,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                         <div className="flex items-center gap-2">
                             <Cloud className="text-blue-500" />
                             <div className="flex items-center gap-2 font-bold text-lg text-white">
+                                <span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded ml-1">v2.0</span>
                                 {viewMode === 'games' ? (
                                     <>
                                         <button onClick={handleBackToLibraries} className="hover:bg-zinc-800 p-1 rounded transition-colors text-zinc-400 hover:text-white">
@@ -688,7 +689,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                     <Book size={24} />
                                                 </div>
                                                 {activeTab === 'my' && (
-                                                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-1">
                                                         <button
                                                             onClick={(e) => handleToggleLibraryPublic(e, lib)}
                                                             className={`p - 1.5 rounded - lg transition - colors ${ lib.is_public ? 'text-blue-500 hover:bg-blue-900/30' : 'text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800' } `}
