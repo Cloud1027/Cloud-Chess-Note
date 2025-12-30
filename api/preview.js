@@ -61,33 +61,28 @@ export default async function handler(req, res) {
     }
 
     // 4. Inject Metadata into HTML
-    // We replace the existing generic tags
     const titleTag = `<title>${gameTitle}</title>`;
     const ogTitle = `<meta property="og:title" content="${gameTitle}">`;
     const ogDesc = `<meta property="og:description" content="${gameDesc}">`;
+    const ogImage = `<meta property="og:image" content="${appUrl}/api/og?id=${id}">`;
     const twitterTitle = `<meta property="twitter:title" content="${gameTitle}">`;
     const twitterDesc = `<meta property="twitter:description" content="${gameDesc}">`;
-
-    // Replacements
-    // Note: This simple replacement assumes standard formatting in index.html.
-    // We replace the *entire* tag ensuring we match what's in index.html or just append if safe.
-    // A safer bet is to replace specific known strings or Regex.
+    const twitterImage = `<meta property="twitter:image" content="${appUrl}/api/og?id=${id}">`;
 
     // Replace <title>...</title>
     html = html.replace(/<title>.*?<\/title>/, titleTag);
 
-    // Replace Open Graph Title
+    // Replace Open Graph Tags
     html = html.replace(/<meta property="og:title" content=".*?">/, ogTitle);
-    // Replace Open Graph Description
     html = html.replace(/<meta property="og:description" content=".*?">/, ogDesc);
+    html = html.replace(/<meta property="og:image" content=".*?">/, ogImage);
 
-    // Replace Twitter Title
+    // Replace Twitter Tags
     html = html.replace(/<meta property="twitter:title" content=".*?">/, twitterTitle);
-    // Replace Twitter Description
     html = html.replace(/<meta property="twitter:description" content=".*?">/, twitterDesc);
+    html = html.replace(/<meta property="twitter:image" content=".*?">/, twitterImage);
 
     // 5. Return the modified HTML
-    // Set caching to ensure social bots see fresh data but users get speed
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
