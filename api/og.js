@@ -1,4 +1,10 @@
 
+import { ImageResponse } from '@vercel/og';
+
+export const config = {
+    runtime: 'edge',
+};
+
 const FIREBASE_PROJECT_ID = "cloud-chess-note";
 const FIREBASE_API_KEY = "AIzaSyArrCjf0xUCqpw4Yo2pm9fefSzNR1twgRM";
 
@@ -24,11 +30,12 @@ const charToPiece = {
     'p': { color: 'black', text: PIECES.black.soldier }
 };
 
-export default async function handler(req, res) {
-    const { id, fen: queryFen } = req.query;
-    let fen = queryFen || 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w';
+export default async function handler(req) {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    let fen = searchParams.get('fen') || 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w';
 
-    if (id && !queryFen) {
+    if (id && !searchParams.get('fen')) {
         try {
             const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/games/${id}?key=${FIREBASE_API_KEY}`;
             const fsRes = await fetch(firestoreUrl);
@@ -41,76 +48,146 @@ export default async function handler(req, res) {
         }
     }
 
-    const svg = generateSVG(fen);
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-    return res.status(200).send(svg);
-}
-
-function generateSVG(fen) {
     const board = parseFen(fen);
     const cellSize = 60;
-    const margin = 30;
-    const width = cellSize * 8 + margin * 2;
-    const height = cellSize * 9 + margin * 2;
+    const padding = 30;
 
-    let svgLines = [];
-    // Background
-    svgLines.push(`<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`);
-    svgLines.push(`<rect width="100%" height="100%" fill="#f3e4c4" />`);
+    // Use ImageResponse to generate PNG
+    return new ImageResponse(
+        (
+            <div
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#f3e4c4',
+                    width: '100%',
+                    height: '100%',
+                    padding: `${padding}px`,
+                }}
+            >
+                {/* Board Container */}
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        width: `${cellSize * 8}px`,
+                        height: `${cellSize * 9}px`,
+                        position: 'relative',
+                        border: '2px solid #333',
+                    }}
+                >
+                    {/* Horizontal Lines */}
+                    {[...Array(10)].map((_, i) => (
+                        <div
+                            key={`h-${i}`}
+                            style={{
+                                position: 'absolute',
+                                top: `${i * cellSize}px`,
+                                left: 0,
+                                width: '100%',
+                                height: '1px',
+                                backgroundColor: '#333',
+                            }}
+                        />
+                    ))}
+                    {/* Vertical Lines */}
+                    {[...Array(9)].map((_, i) => (
+                        <div
+                            key={`v-${i}`}
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: `${i * cellSize}px`,
+                                width: '1px',
+                                height: '100%',
+                                backgroundColor: '#333',
+                                display: 'flex',
+                                flexDirection: 'column',
+                            }}
+                        >
+                            {/* Break the line at the river */}
+                            {i !== 0 && i !== 8 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: `${cellSize * 4}px`,
+                                    left: '-5px',
+                                    width: '10px',
+                                    height: `${cellSize}px`,
+                                    backgroundColor: '#f3e4c4',
+                                    zIndex: 1
+                                }} />
+                            )}
+                        </div>
+                    ))}
 
-    // Board Lines
-    // Horizontals
-    for (let i = 0; i < 10; i++) {
-        const y = margin + i * cellSize;
-        svgLines.push(`<line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}" stroke="#333" stroke-width="1" />`);
-    }
-    // Verticals
-    for (let i = 0; i < 9; i++) {
-        const x = margin + i * cellSize;
-        // Upper part
-        svgLines.push(`<line x1="${x}" y1="${margin}" x2="${x}" y2="${margin + 4 * cellSize}" stroke="#333" stroke-width="1" />`);
-        // Lower part
-        svgLines.push(`<line x1="${x}" y1="${margin + 5 * cellSize}" x2="${x}" y2="${margin + 9 * cellSize}" stroke="#333" stroke-width="1" />`);
-    }
-    // Vertical edges (full line)
-    svgLines.push(`<line x1="${margin}" y1="${margin}" x2="${margin}" y2="${height - margin}" stroke="#333" stroke-width="1" />`);
-    svgLines.push(`<line x1="${width - margin}" y1="${margin}" x2="${width - margin}" y2="${height - margin}" stroke="#333" stroke-width="1" />`);
+                    {/* Palaces X Lines (Omitted for simplicity in CSS rendering, but can be added with absolute skewed divs if needed) */}
 
-    // Palaces (X lines)
-    // Black Palace
-    svgLines.push(`<line x1="${margin + 3 * cellSize}" y1="${margin}" x2="${margin + 5 * cellSize}" y2="${margin + 2 * cellSize}" stroke="#333" stroke-width="1" />`);
-    svgLines.push(`<line x1="${margin + 5 * cellSize}" y1="${margin}" x2="${margin + 3 * cellSize}" y2="${margin + 2 * cellSize}" stroke="#333" stroke-width="1" />`);
-    // Red Palace
-    svgLines.push(`<line x1="${margin + 3 * cellSize}" y1="${height - margin}" x2="${margin + 5 * cellSize}" y2="${height - margin - 2 * cellSize}" stroke="#333" stroke-width="1" />`);
-    svgLines.push(`<line x1="${margin + 5 * cellSize}" y1="${height - margin}" x2="${margin + 3 * cellSize}" y2="${height - margin - 2 * cellSize}" stroke="#333" stroke-width="1" />`);
+                    {/* River Text */}
+                    <div style={{
+                        position: 'absolute',
+                        top: `${cellSize * 4}px`,
+                        left: 0,
+                        width: '100%',
+                        height: `${cellSize}px`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-around',
+                        fontSize: '24px',
+                        fontWeight: 'bold',
+                        color: '#333',
+                        zIndex: 2
+                    }}>
+                        <span>楚 河</span>
+                        <span>漢 界</span>
+                    </div>
 
-    // River Text
-    const riverY = margin + 4.5 * cellSize;
-    svgLines.push(`<text x="${margin + 1.5 * cellSize}" y="${riverY}" font-family="serif" font-size="24" fill="#333" text-anchor="middle" dominant-baseline="middle" transform="rotate(0)">楚河</text>`);
-    svgLines.push(`<text x="${width - margin - 1.5 * cellSize}" y="${riverY}" font-family="serif" font-size="24" fill="#333" text-anchor="middle" dominant-baseline="middle" transform="rotate(0)">漢界</text>`);
-
-    // Pieces
-    for (let r = 0; r < 10; r++) {
-        for (let c = 0; c < 9; c++) {
-            const piece = board[r][c];
-            if (piece) {
-                const x = margin + c * cellSize;
-                const y = margin + r * cellSize;
-                const color = piece.color === 'red' ? '#cc0000' : '#000000';
-
-                // Shadow/Border
-                svgLines.push(`<circle cx="${x}" cy="${y}" r="26" fill="white" stroke="${color}" stroke-width="2" />`);
-                svgLines.push(`<circle cx="${x}" cy="${y}" r="22" fill="white" stroke="${color}" stroke-width="1" />`);
-
-                // Text
-                svgLines.push(`<text x="${x}" y="${y}" font-family="serif" font-size="28" font-weight="bold" fill="${color}" text-anchor="middle" dominant-baseline="central">${piece.text}</text>`);
-            }
+                    {/* Pieces */}
+                    {board.map((row, r) =>
+                        row.map((piece, c) => piece && (
+                            <div
+                                key={`${r}-${c}`}
+                                style={{
+                                    position: 'absolute',
+                                    top: `${r * cellSize - 25}px`,
+                                    left: `${c * cellSize - 25}px`,
+                                    width: '50px',
+                                    height: '50px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'white',
+                                    border: `2px solid ${piece.color === 'red' ? '#cc0000' : '#000'}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '28px',
+                                    fontWeight: 'bold',
+                                    color: piece.color === 'red' ? '#cc0000' : '#000',
+                                    zIndex: 10
+                                }}
+                            >
+                                <div style={{
+                                    width: '42px',
+                                    height: '42px',
+                                    borderRadius: '50%',
+                                    border: '1px solid currentColor',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    {piece.text}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        ),
+        {
+            width: 600,
+            height: 600,
         }
-    }
-
-    svgLines.push(`</svg>`);
-    return svgLines.join('\n');
+    );
 }
 
 function parseFen(fen) {
