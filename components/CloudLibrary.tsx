@@ -340,19 +340,19 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                         <div className="flex items-center gap-2">
                             <Cloud className="text-blue-500" />
                             <div className="flex items-center gap-2 font-bold text-lg text-white">
-                                {viewMode === 'games' && currentLibrary ? (
+                                {viewMode === 'games' ? (
                                     <>
                                         <button onClick={handleBackToLibraries} className="hover:bg-zinc-800 p-1 rounded transition-colors text-zinc-400 hover:text-white">
                                             <ArrowLeft size={20} />
                                         </button>
-                                        <span className="text-zinc-500 cursor-pointer hover:text-zinc-300" onClick={handleBackToLibraries}>
+                                        <span className="text-zinc-500 cursor-pointer hover:text-zinc-300 hidden sm:inline" onClick={handleBackToLibraries}>
                                             {activeTab === 'public' ? '公共棋庫' : '我的棋庫'}
                                         </span>
-                                        <span className="text-zinc-600">/</span>
-                                        <span>{currentLibrary.title}</span>
+                                        <span className="text-zinc-600 hidden sm:inline">/</span>
+                                        <span>{currentLibrary ? currentLibrary.title : '未分類棋譜'}</span>
                                     </>
                                 ) : (
-                                    <span>{viewMode === 'games' ? (activeTab === 'public' ? '公共棋譜 (未分類)' : '我的棋譜 (未分類)') : (activeTab === 'public' ? '公共棋庫' : '雲端棋庫')}</span>
+                                    <span>{activeTab === 'public' ? '公共棋庫' : '雲端棋庫'}</span>
                                 )}
                             </div>
                         </div>
