@@ -98,13 +98,8 @@ export const createLibrary = async (userId: string, data: { title: string, descr
         console.error("Error creating library:", error);
         throw error;
     }
-});
-return docRef.id;
-    } catch (error) {
-    console.error("Error creating library:", error);
-    throw error;
-}
 };
+
 
 // Update Library
 export const updateLibrary = async (libraryId: string, data: Partial<{ title: string, description: string, is_public: boolean, game_count: number }>) => {
