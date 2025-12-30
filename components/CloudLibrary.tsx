@@ -333,8 +333,8 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
         try {
             // Parse the standardized format
             let loadedRoot;
-            if (game.rootNode) {
-                let jsonString = game.rootNode;
+            if (game.root_node) {
+                let jsonString = game.root_node;
                 // Check if compressed (basic check: not starting with { or [)
                 if (typeof jsonString === 'string' && !jsonString.trim().startsWith('{') && !jsonString.trim().startsWith('[')) {
                     const decompressed = LZString.decompressFromUTF16(jsonString);

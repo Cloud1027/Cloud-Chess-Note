@@ -230,8 +230,8 @@ const App: React.FC = () => {
             window.history.replaceState({}, '', '/');
             import('./services/firebase').then(({ getCloudGameById }) => {
                 getCloudGameById(sharedId).then(async game => {
-                    if (game && (game.rootNode || (game.fen && game.fen !== 'start'))) {
-                        let jsonString = game.rootNode;
+                    if (game && (game.root_node || (game.fen && game.fen !== 'start'))) {
+                        let jsonString = game.root_node;
                         // Check for compressed data
                         if (typeof jsonString === 'string' && !jsonString.trim().startsWith('{') && !jsonString.trim().startsWith('[')) {
                             const LZString = (await import('lz-string')).default;
