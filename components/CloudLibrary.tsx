@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { X, User, LogOut, Cloud, Globe, Lock, Unlock, Trash2, Download, Save, ExternalLink, Share2, ChevronDown, ChevronUp, Folder, Book, Plus, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -379,7 +380,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                         <div className="flex items-center gap-2">
                             <Cloud className="text-blue-500" />
                             <div className="flex items-center gap-2 font-bold text-lg text-white">
-                                <span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded ml-1">v2.0</span>
+                                <span className="text-xs bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded ml-1">v2.2</span>
                                 {viewMode === 'games' ? (
                                     <>
                                         <button onClick={handleBackToLibraries} className="hover:bg-zinc-800 p-1 rounded transition-colors text-zinc-400 hover:text-white">
