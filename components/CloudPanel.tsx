@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Cloud, Activity, RefreshCw, WifiOff, BarChart2, Cpu, Play, Square, Settings2, Wifi } from 'lucide-react';
 import { Point, Piece, CloudMove } from '../types';
-import { getChineseNotation, ucciToCoords, fetchCloudBookData, getChineseNotationForPV } from '../lib/utils';
+import { getChineseNotation, ucciToCoords, fetchCloudBookData, getChineseNotationForPV, fenToBoard } from '../lib/utils';
 import { LocalEngine, EngineStats } from '../lib/engine';
 
 interface CloudPanelProps {
@@ -97,11 +97,25 @@ const CloudPanel: React.FC<CloudPanelProps> = ({
             if (!coords) return ucci;
             const { from, to } = coords;
             if (from.r < 0 || from.r > 9 || from.c < 0 || from.c > 8) return ucci;
-            const piece = currentBoard[from.r][from.c];
+
+            // LAZY HYDRATION: If currentBoard is missing or empty, try to generate it from FEN
+            let board = currentBoard;
+            if (!board || board.length === 0 || !board[from.r]) {
+                if (currentFen) {
+                    board = fenToBoard(currentFen).board;
+                } else {
+                    return ucci;
+                }
+            }
+
+            const piece = board[from.r][from.c];
             if (!piece) return ucci;
-            const captured = currentBoard[to.r][to.c];
-            return getChineseNotation(currentBoard, { from, to, piece, captured });
-        } catch (e) { return ucci; }
+            const captured = board[to.r][to.c];
+            return getChineseNotation(board, { from, to, piece, captured });
+        } catch (e) {
+            console.error("Move notation error:", e);
+            return ucci;
+        }
     };
 
     const loadData = async (fen: string) => {

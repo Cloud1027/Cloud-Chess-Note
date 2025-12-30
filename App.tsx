@@ -539,7 +539,12 @@ const App: React.FC = () => {
     const handleRequestDeleteNode = (nodeId: string, msg: string) => showConfirm('確認刪除變著', msg, () => deleteNode(nodeId));
 
     const handleCloudMove = (coords: { from: Point, to: Point }) => {
-        const board = currentNode.boardState;
+        let board = currentNode.boardState;
+        // Fallback for Lite Mode (missing boardState)
+        if (!board || board.length === 0 || !board[coords.from.r]) {
+            board = fenToBoard(currentNode.fen).board;
+        }
+
         const piece = board[coords.from.r][coords.from.c];
         if (!piece || piece.color !== currentNode.turn) return;
         const targetPiece = board[coords.to.r][coords.to.c];
