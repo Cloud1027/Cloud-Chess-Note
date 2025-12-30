@@ -53,6 +53,7 @@ const App: React.FC = () => {
 
     // Clipboard Tags (Customizable)
     const [clipboardTags, setClipboardTags] = useLocalStorage<string[]>('clipboard-tags', ['正著', '劣著', '失子', '飛刀', '妙手', '殺棋']);
+    const [loadingSharedGame, setLoadingSharedGame] = useState(false);
 
     const handleEditClipboardTags = () => {
         const input = prompt('編輯標籤 (用逗號分隔，最多6個):', clipboardTags.join(', '));
@@ -226,6 +227,7 @@ const App: React.FC = () => {
 
         if (sharedId) {
             processedUrlRef.current = true;
+            setLoadingSharedGame(true);
             // Clean URL
             window.history.replaceState({}, '', '/');
             import('./services/firebase').then(({ getCloudGameById }) => {
@@ -304,13 +306,16 @@ const App: React.FC = () => {
 
                         setTabs(prev => [...prev, newTab]);
                         handleSwitchTab(newTabId, newTab);
+                        setLoadingSharedGame(false);
                         window.history.replaceState({}, '', '/'); // Clean URL
                     } else {
                         alert('找不到該分享的棋譜或是格式不正確。');
+                        setLoadingSharedGame(false);
                     }
                 }).catch(err => {
                     console.error("Load shared game failed:", err);
                     alert("載入分享棋譜失敗");
+                    setLoadingSharedGame(false);
                 });
             });
         }
@@ -600,6 +605,12 @@ const App: React.FC = () => {
 
     return (
         <>
+            {loadingSharedGame && (
+                <div className="fixed inset-0 bg-black/80 z-[9999] flex flex-col items-center justify-center gap-4">
+                    <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-amber-500 font-bold text-lg animate-pulse">正在從雲端載入棋譜...</p>
+                </div>
+            )}
             <MainLayout
                 isMobilePortrait={isMobilePortrait}
                 header={

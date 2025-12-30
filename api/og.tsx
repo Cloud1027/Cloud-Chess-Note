@@ -1,9 +1,7 @@
-
 import { ImageResponse } from '@vercel/og';
 import React from 'react';
 
-// Removing edge config to see if standard Node runtime handles it better
-// export const config = { runtime: 'edge' };
+export const config = { runtime: 'edge' };
 
 const FIREBASE_PROJECT_ID = "cloud-chess-note";
 const FIREBASE_API_KEY = "AIzaSyArrCjf0xUCqpw4Yo2pm9fefSzNR1twgRM";
