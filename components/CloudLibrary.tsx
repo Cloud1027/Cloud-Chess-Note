@@ -128,7 +128,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
         setAuthError(null);
         try {
             await resetPassword(email);
-            alert(`重設密碼信件已寄送到 ${email}。\n請查收信件並依照指示重設密碼。`);
+            alert("重設密碼信件已寄送到 " + email + "。請查收信件並依照指示重設密碼。");
         } catch (e: any) {
             let msg = "發送失敗";
             if (e.code === 'auth/invalid-email') msg = "Email 格式錯誤";
