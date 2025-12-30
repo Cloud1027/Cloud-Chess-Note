@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, LogOut, Cloud, Globe, Lock, Unlock, Trash2, Download, Save, ExternalLink, Share2, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, User, LogOut, Cloud, Globe, Lock, Unlock, Trash2, Download, Save, ExternalLink, Share2, ChevronDown, ChevronUp, Folder, Book, Plus, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { saveGameToCloud, getUserGames, getPublicGames, deleteCloudGame, updateCloudGame } from '../services/firebase';
+import { saveGameToCloud, getUserGames, getPublicGames, deleteCloudGame, updateCloudGame, createLibrary, getLibraries, getLibraryGames, getUncategorizedGames } from '../services/firebase';
 import { INITIAL_BOARD_SETUP } from '../constants';
 import { MiniBoardPreview } from './MiniBoardPreview';
 import { fenToBoard } from '../lib/utils';
 // import { moveListToFen } from '../lib/utils'; // Unused
-import { GameTab } from '../types';
+import { GameTab, Library } from '../types';
 import LZString from 'lz-string';
 
 // Helper: Remove voluminous boardState for storage
@@ -53,6 +53,18 @@ interface CloudLibraryProps {
 const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab, defaultTitle, previewFen, onLoadGame }) => {
     const { user, login, logout, loading, loginEmail, registerEmail, resetPassword } = useAuth();
     const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
+
+    // NEW: View Mode State
+    const [viewMode, setViewMode] = useState<'libraries' | 'games'>('libraries');
+    const [libraries, setLibraries] = useState<Library[]>([]);
+    const [currentLibrary, setCurrentLibrary] = useState<Library | null>(null); // Null = Uncategorized if viewMode=games
+
+    // Form State for creating library
+    const [isCreateLibOpen, setIsCreateLibOpen] = useState(false);
+    const [newLibTitle, setNewLibTitle] = useState('');
+    const [newLibDesc, setNewLibDesc] = useState('');
+
+    // Existing Game State
     const [games, setGames] = useState<any[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [saveTitle, setSaveTitle] = useState(defaultTitle || currentTab.title); // Initialize with defaultTitle
@@ -115,6 +127,38 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
         }
     };
 
+    // Library Management
+    const handleCreateLibrary = async () => {
+        if (!user) return;
+        if (!newLibTitle.trim()) return alert("請輸入標題");
+
+        try {
+            await createLibrary(user.uid, {
+                title: newLibTitle,
+                description: newLibDesc,
+                is_public: isSavePublic // Reuse the public toggle or add new one? reused for simplicity or strictly passed
+            });
+            setIsCreateLibOpen(false);
+            setNewLibTitle('');
+            setNewLibDesc('');
+            // Refresh
+            fetchData();
+        } catch (e) {
+            console.error(e);
+            alert("建立失敗");
+        }
+    };
+
+    const handleEnterLibrary = (lib: Library | null) => {
+        setCurrentLibrary(lib);
+        setViewMode('games');
+    };
+
+    const handleBackToLibraries = () => {
+        setCurrentLibrary(null);
+        setViewMode('libraries');
+    };
+
     // Update title when modal opens or defaultTitle changes
     useEffect(() => {
         if (isOpen) {
@@ -125,46 +169,51 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // Fetch Data on Tab Change or User Change
-    useEffect(() => {
-        if (!isOpen) return;
+    const fetchData = async () => {
+        setIsLoadingData(true);
+        setErrorMessage(null);
+        setIndexErrorLink(null);
 
-        const fetchData = async () => {
-            setIsLoadingData(true);
-            setErrorMessage(null);
-            setIndexErrorLink(null);
-
-            try {
-                if (activeTab === 'my') {
-                    if (user) {
-                        try {
-                            const data = await getUserGames(user.uid);
-                            setGames(data);
-                        } catch (e: any) {
-                            // Check for index error
-                            if (e.message && e.message.includes('requires an index')) {
-                                setIndexErrorLink(e.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/)?.[0]);
-                            } else {
-                                throw e;
-                            }
-                        }
-                    } else {
-                        setGames([]);
-                    }
+        try {
+            if (viewMode === 'libraries') {
+                // Fetch Libraries
+                const isPublic = activeTab === 'public';
+                const libs = await getLibraries(isPublic, user?.uid);
+                // @ts-ignore
+                setLibraries(libs);
+            } else {
+                // Fetch Games
+                if (currentLibrary) {
+                    const data = await getLibraryGames(currentLibrary.id);
+                    setGames(data);
                 } else {
-                    // public
-                    const data = await getPublicGames();
+                    // Uncategorized
+                    const isPublic = activeTab === 'public';
+                    // Needed for type safety
+                    if (!isPublic && !user) {
+                        setGames([]);
+                        return;
+                    }
+                    const data = await getUncategorizedGames(user?.uid || '', isPublic);
                     setGames(data);
                 }
-            } catch (error: any) {
-                console.error("Fetch error:", error);
-                setErrorMessage(error.message);
-            } finally {
-                setIsLoadingData(false);
             }
-        };
+        } catch (error: any) {
+            console.error("Fetch error:", error);
+            // Check for index error
+            if (error.message && error.message.includes('requires an index')) {
+                setIndexErrorLink(error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/)?.[0]);
+            }
+            setErrorMessage(error.message);
+        } finally {
+            setIsLoadingData(false);
+        }
+    };
 
+    useEffect(() => {
+        if (!isOpen) return;
         fetchData();
-    }, [isOpen, activeTab, user]);
+    }, [isOpen, activeTab, user, viewMode, currentLibrary]);
 
     // Save Current Game
     const handleSaveGame = async () => {
@@ -186,30 +235,29 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
             const gameData = {
                 title: saveTitle || '無標題',
                 fen: previewFen,
-                rootNode: compressed, // Store compressed string
-                metadata: {
-                    ...currentTab.metadata,
-                    title: saveTitle
-                },
-                redName: currentTab.metadata.redName || '',
-                blackName: currentTab.metadata.blackName || '',
-                result: currentTab.metadata.result || 'unknown',
-                date: new Date().toISOString()
+                root_node: compressed, // Save compressed string
+                // Add Metadata if available
+                metadata: currentTab.metadata
             };
 
-            const shouldBePublic = activeTab === 'public' || isSavePublic;
-            await saveGameToCloud(user.uid, gameData, shouldBePublic);
-            alert("儲存成功！");
+            await saveGameToCloud(
+                user.uid,
+                gameData,
+                isSavePublic,
+                currentLibrary?.id // Pass library ID if selected
+            );
 
-            if (activeTab === 'my') {
-                const data = await getUserGames(user.uid);
-                setGames(data);
-            } else if (activeTab === 'public') {
-                const data = await getPublicGames();
-                setGames(data);
-            }
+            setSaveTitle('');
+
+            // Refresh logic: 
+            // If we are in the library we just saved to, refresh games.
+            // If we are in libraries view, or another library, technically we should navigate there?
+            // For now just refresh data.
+            fetchData();
+
+            alert("儲存成功！");
         } catch (error: any) {
-            console.error("Save failed:", error);
+            console.error("Save error:", error);
             alert("儲存失敗: " + (error.message || "未知錯誤"));
         } finally {
             setIsSaving(false);
@@ -287,31 +335,63 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-zinc-900 border border-zinc-700 w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden">
 
-                {/* Header */}
-                <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950">
-                    <div className="flex items-center gap-2">
-                        <div className="bg-blue-600/20 p-2 rounded-lg text-blue-400">
-                            <Cloud size={24} />
+                <div className="border-b border-zinc-800 p-4 flex items-center justify-between bg-zinc-950/50">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Cloud className="text-blue-500" />
+                            <div className="flex items-center gap-2 font-bold text-lg text-white">
+                                {viewMode === 'games' && currentLibrary ? (
+                                    <>
+                                        <button onClick={handleBackToLibraries} className="hover:bg-zinc-800 p-1 rounded transition-colors text-zinc-400 hover:text-white">
+                                            <ArrowLeft size={20} />
+                                        </button>
+                                        <span className="text-zinc-500 cursor-pointer hover:text-zinc-300" onClick={handleBackToLibraries}>
+                                            {activeTab === 'public' ? '公共棋庫' : '我的棋庫'}
+                                        </span>
+                                        <span className="text-zinc-600">/</span>
+                                        <span>{currentLibrary.title}</span>
+                                    </>
+                                ) : (
+                                    <span>{viewMode === 'games' ? (activeTab === 'public' ? '公共棋譜 (未分類)' : '我的棋譜 (未分類)') : (activeTab === 'public' ? '公共棋庫' : '雲端棋庫')}</span>
+                                )}
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-white">雲端棋譜庫</h2>
-                            <p className="text-xs text-zinc-500">Firebase Cloud Storage</p>
+                        <div className="flex bg-zinc-800 rounded-lg p-1">
+                            <button
+                                onClick={() => { setActiveTab('my'); setViewMode('libraries'); setCurrentLibrary(null); }}
+                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'my' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-300'}`}
+                            >
+                                我的棋譜
+                            </button>
+                            <button
+                                onClick={() => { setActiveTab('public'); setViewMode('libraries'); setCurrentLibrary(null); }}
+                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'public' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-300'}`}
+                            >
+                                公共棋譜
+                            </button>
                         </div>
                     </div>
+
                     <div className="flex items-center gap-2">
+                        {/* Create Library Button (Only in Library View) */}
+                        {viewMode === 'libraries' && activeTab === 'my' && (
+                            <button
+                                onClick={() => setIsCreateLibOpen(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-emerald-400 text-sm transition-colors"
+                            >
+                                <Plus size={16} />
+                                <span className="hidden sm:inline">新增棋庫</span>
+                            </button>
+                        )}
                         <button
                             onClick={() => {
                                 setIsLoadingData(true);
-                                // Trigger re-fetch logic relies on dependency change or we extract fetch function.
-                                // Simplest way: toggle activeTab or separate fetch function.
-                                const promise = activeTab === 'my' && user ? getUserGames(user.uid) : getPublicGames(true);
-                                promise.then(data => setGames(data)).catch(e => setErrorMessage(e.message)).finally(() => setIsLoadingData(false));
+                                fetchData();
                             }}
                             className="flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors text-sm"
                             title="從伺服器取得最新資料"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
-                            <span>{activeTab === 'public' ? '讀取最新公共棋譜' : '重新整理'}</span>
                         </button>
                         <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 transition-colors">
                             <X size={24} />
@@ -537,117 +617,211 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                         重新整理
                                     </button>
                                 </div>
-                            ) : games.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-zinc-600 flex-col gap-4">
-                                    <div className="p-4 rounded-full bg-zinc-800/50">
-                                        <Cloud size={48} className="opacity-20" />
+                            ) : viewMode === 'libraries' ? (
+                                // --- LIBRARY VIEW ---
+                                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                                    {/* Uncategorized Folder (Fixed) */}
+                                    <div
+                                        onClick={() => handleEnterLibrary(null)}
+                                        className="group bg-zinc-950 border border-zinc-800 hover:border-blue-500/50 hover:bg-zinc-900 rounded-xl p-4 cursor-pointer transition-all flex flex-col gap-3 min-h-[8rem]"
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div className="p-3 bg-zinc-900 rounded-lg group-hover:bg-blue-900/20 group-hover:text-blue-400 transition-colors text-zinc-500">
+                                                <Folder size={24} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-lg text-zinc-200 group-hover:text-blue-400 transition-colors">未分類棋譜</h3>
+                                            <p className="text-xs text-zinc-500">所有未歸類到棋庫的棋譜</p>
+                                        </div>
                                     </div>
-                                    <div className="text-center">
-                                        <p className="font-bold text-zinc-400">目前沒有棋譜資料</p>
-                                        <p className="text-sm text-zinc-600 mt-2">請按右上角重新整理</p>
-                                    </div>
+
+                                    {/* Library Cards */}
+                                    {libraries.map(lib => (
+                                        <div
+                                            key={lib.id}
+                                            onClick={() => handleEnterLibrary(lib)}
+                                            className="group bg-zinc-950 border border-zinc-800 hover:border-blue-500/50 hover:bg-zinc-900 rounded-xl p-4 cursor-pointer transition-all flex flex-col gap-3 min-h-[8rem]"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div className="p-3 bg-zinc-900 rounded-lg group-hover:bg-blue-900/20 group-hover:text-blue-400 transition-colors text-zinc-500">
+                                                    <Book size={24} />
+                                                </div>
+                                                {/* Optional: Add delete/edit menu here */}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-lg text-zinc-200 group-hover:text-blue-400 transition-colors line-clamp-1">{lib.title}</h3>
+                                                <div className="flex items-center gap-2 text-xs text-zinc-500 mt-1">
+                                                    <span>{lib.game_count || 0} 局</span>
+                                                    <span>•</span>
+                                                    <span>{activeTab === 'public' ? lib.owner_id : '私人'}</span>
+                                                </div>
+                                                {lib.description && (
+                                                    <p className="text-xs text-zinc-600 mt-2 line-clamp-2">{lib.description}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* Empty State for Libraries */}
+                                    {libraries.length === 0 && (
+                                        <div className="col-span-full py-8 text-center text-zinc-600 text-sm">
+                                            尚無自訂棋庫，您可以點擊上方「新增棋庫」來建立。
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-3">
-                                    {games.map((game) => {
-                                        const isOwner = user && game.owner_id === user.uid;
-                                        return (
-                                            <div key={game.id} className="group bg-zinc-950 border border-zinc-800 hover:border-zinc-600 rounded-xl p-3 transition-all hover:shadow-lg flex gap-4">
-                                                {/* Left: Mini Board Preview */}
-                                                <div className="w-24 h-28 md:w-32 md:h-36 shrink-0 bg-[#f2e1c2] rounded-lg overflow-hidden border border-zinc-800 shadow-inner relative group-hover:scale-105 transition-transform origin-left cursor-pointer" onClick={() => handleLoad(game)}>
-                                                    <MiniBoardPreview fen={game.fen || "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1"} />
-                                                    {/* Hover Overlay */}
-                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                        <div className="bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
-                                                            點擊載入
+                                // --- GAMES VIEW ---
+                                games.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-zinc-600 flex-col gap-4">
+                                        <div className="p-4 rounded-full bg-zinc-800/50">
+                                            <Cloud size={48} className="opacity-20" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="font-bold text-zinc-400">目前沒有棋譜資料</p>
+                                            <p className="text-sm text-zinc-600 mt-2">請按右上角重新整理</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {games.map((game) => {
+                                            const isOwner = user && game.owner_id === user.uid;
+                                            return (
+                                                <div key={game.id} className="group bg-zinc-950 border border-zinc-800 hover:border-zinc-600 rounded-xl p-3 transition-all hover:shadow-lg flex gap-4">
+                                                    {/* Left: Mini Board Preview */}
+                                                    <div className="w-24 h-28 md:w-32 md:h-36 shrink-0 bg-[#f2e1c2] rounded-lg overflow-hidden border border-zinc-800 shadow-inner relative group-hover:scale-105 transition-transform origin-left cursor-pointer" onClick={() => handleLoad(game)}>
+                                                        <MiniBoardPreview fen={game.fen || "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1"} />
+                                                        {/* Hover Overlay */}
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                            <div className="bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
+                                                                點擊載入
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                {/* Right: Info & Actions */}
-                                                <div className="flex-1 flex flex-col justify-between py-1">
-                                                    <div>
-                                                        <div className="flex justify-between items-start">
-                                                            <h3 className="font-bold text-zinc-200 text-lg group-hover:text-blue-400 transition-colors cursor-pointer line-clamp-1" onClick={() => handleLoad(game)}>{game.title || "無標題"}</h3>
-                                                            {isOwner ? (
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); handleTogglePublic(game.id, game.is_public); }}
-                                                                    className={`p-1.5 rounded-lg shrink-0 cursor-pointer transition-colors ${game.is_public ? 'bg-blue-900/20 text-blue-500 hover:bg-blue-900/40' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
-                                                                    title={game.is_public ? "已公開 (點擊改為私人)" : "僅限私人 (點擊改為公開)"}
-                                                                >
-                                                                    {game.is_public ? <Globe size={16} /> : <Lock size={16} />}
-                                                                </button>
-                                                            ) : (
-                                                                <div className={`p-1.5 rounded-lg shrink-0 ${game.is_public ? 'bg-blue-900/20 text-blue-500' : 'bg-zinc-800 text-zinc-500'}`} title={game.is_public ? "公開狀態" : "私人狀態"}>
-                                                                    {game.is_public ? <Globe size={16} /> : <Lock size={16} />}
+                                                    {/* Right: Info & Actions */}
+                                                    <div className="flex-1 flex flex-col justify-between py-1">
+                                                        <div>
+                                                            <div className="flex justify-between items-start">
+                                                                <h3 className="font-bold text-zinc-200 text-lg group-hover:text-blue-400 transition-colors cursor-pointer line-clamp-1" onClick={() => handleLoad(game)}>{game.title || "無標題"}</h3>
+                                                                {isOwner ? (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleTogglePublic(game.id, game.is_public); }}
+                                                                        className={`p-1.5 rounded-lg shrink-0 cursor-pointer transition-colors ${game.is_public ? 'bg-blue-900/20 text-blue-500 hover:bg-blue-900/40' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                                                                        title={game.is_public ? "已公開 (點擊改為私人)" : "僅限私人 (點擊改為公開)"}
+                                                                    >
+                                                                        {game.is_public ? <Globe size={16} /> : <Lock size={16} />}
+                                                                    </button>
+                                                                ) : (
+                                                                    <div className={`p-1.5 rounded-lg shrink-0 ${game.is_public ? 'bg-blue-900/20 text-blue-500' : 'bg-zinc-800 text-zinc-500'}`} title={game.is_public ? "公開狀態" : "私人狀態"}>
+                                                                        {game.is_public ? <Globe size={16} /> : <Lock size={16} />}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="hidden md:flex flex-col gap-1 mt-2">
+                                                                <div className="text-xs text-zinc-500 flex items-center gap-1.5">
+                                                                    <User size={12} />
+                                                                    <span className="truncate max-w-[12rem]">{isOwner ? "我自己" : `使用者 ${game.owner_id.slice(0, 6)}...`}</span>
                                                                 </div>
+                                                                <div className="text-xs text-zinc-600 font-mono">
+                                                                    {new Date(game.updated_at?.seconds * 1000).toLocaleString()}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Action Buttons */}
+                                                        <div className="flex items-center justify-end gap-2 mt-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => {
+                                                                    const url = `${window.location.origin}/s/${game.id}`;
+                                                                    navigator.clipboard.writeText(url).then(() => alert("連結已複製到剪貼簿！"));
+                                                                }}
+                                                                className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 rounded-lg flex items-center gap-1 transition-colors"
+                                                                title="複製分享連結"
+                                                            >
+                                                                <Share2 size={16} />
+                                                            </button>
+
+                                                            {/* Start Analysis / Load */}
+                                                            <button
+                                                                onClick={() => handleLoad(game)}
+                                                                className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-lg flex items-center gap-1 transition-colors"
+                                                                title="載入棋譜"
+                                                            >
+                                                                <Download size={16} />
+                                                            </button>
+
+                                                            {/* Owner Actions (Show if activeTab is 'my' OR if user owns this public game) */}
+                                                            {(activeTab === 'my' || isOwner) && (
+                                                                <>
+                                                                    <div className="w-px h-4 bg-zinc-800 mx-1"></div>
+                                                                    <button
+                                                                        onClick={() => handleTogglePublic(game.id, game.is_public)}
+                                                                        className={`p-1.5 rounded-lg transition-colors ${game.is_public ? 'hover:bg-blue-900/30 text-blue-500' : 'hover:bg-zinc-800 text-zinc-500'}`}
+                                                                        title={game.is_public ? "設為私人" : "設為公開"}
+                                                                    >
+                                                                        {game.is_public ? <Unlock size={16} /> : <Lock size={16} />}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDelete(game.id)}
+                                                                        className="p-1.5 hover:bg-red-900/30 text-zinc-600 hover:text-red-500 rounded-lg transition-colors"
+                                                                        title="刪除"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </>
                                                             )}
                                                         </div>
-
-                                                        <div className="hidden md:flex flex-col gap-1 mt-2">
-                                                            <div className="text-xs text-zinc-500 flex items-center gap-1.5">
-                                                                <User size={12} />
-                                                                <span className="truncate max-w-[12rem]">{isOwner ? "我自己" : `使用者 ${game.owner_id.slice(0, 6)}...`}</span>
-                                                            </div>
-                                                            <div className="text-xs text-zinc-600 font-mono">
-                                                                {new Date(game.updated_at?.seconds * 1000).toLocaleString()}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Action Buttons */}
-                                                    <div className="flex items-center justify-end gap-2 mt-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => {
-                                                                const url = `${window.location.origin}/s/${game.id}`;
-                                                                navigator.clipboard.writeText(url).then(() => alert("連結已複製到剪貼簿！"));
-                                                            }}
-                                                            className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 rounded-lg flex items-center gap-1 transition-colors"
-                                                            title="複製分享連結"
-                                                        >
-                                                            <Share2 size={16} />
-                                                        </button>
-
-                                                        {/* Start Analysis / Load */}
-                                                        <button
-                                                            onClick={() => handleLoad(game)}
-                                                            className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-lg flex items-center gap-1 transition-colors"
-                                                            title="載入棋譜"
-                                                        >
-                                                            <Download size={16} />
-                                                        </button>
-
-                                                        {/* Owner Actions (Show if activeTab is 'my' OR if user owns this public game) */}
-                                                        {(activeTab === 'my' || isOwner) && (
-                                                            <>
-                                                                <div className="w-px h-4 bg-zinc-800 mx-1"></div>
-                                                                <button
-                                                                    onClick={() => handleTogglePublic(game.id, game.is_public)}
-                                                                    className={`p-1.5 rounded-lg transition-colors ${game.is_public ? 'hover:bg-blue-900/30 text-blue-500' : 'hover:bg-zinc-800 text-zinc-500'}`}
-                                                                    title={game.is_public ? "設為私人" : "設為公開"}
-                                                                >
-                                                                    {game.is_public ? <Unlock size={16} /> : <Lock size={16} />}
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDelete(game.id)}
-                                                                    className="p-1.5 hover:bg-red-900/30 text-zinc-600 hover:text-red-500 rounded-lg transition-colors"
-                                                                    title="刪除"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            </>
-                                                        )}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Create Library Modal */}
+            {isCreateLibOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-zinc-900 border border-zinc-700 w-full max-w-md rounded-xl p-6 shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-white">建立新棋庫</h3>
+                            <button onClick={() => setIsCreateLibOpen(false)} className="text-zinc-500 hover:text-white"><X size={20} /></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-zinc-400 mb-1">棋庫名稱</label>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={newLibTitle}
+                                    onChange={e => setNewLibTitle(e.target.value)}
+                                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                                    placeholder="例如：基本殺法"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-zinc-400 mb-1">簡介 (選填)</label>
+                                <textarea
+                                    value={newLibDesc}
+                                    onChange={e => setNewLibDesc(e.target.value)}
+                                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 h-24 resize-none"
+                                    placeholder="請輸入關於此棋庫的描述..."
+                                />
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button onClick={() => setIsCreateLibOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-white text-sm">取消</button>
+                                <button onClick={handleCreateLibrary} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold">建立</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

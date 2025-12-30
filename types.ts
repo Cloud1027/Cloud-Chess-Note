@@ -114,3 +114,33 @@ export interface AppSettings {
   showEngineArrows: boolean; // Toggle for engine analysis arrows
   engineThreads: number; // Number of threads for the engine
 }
+
+// Cloud Library Types
+export interface Library {
+  id: string;
+  title: string;
+  description: string;
+  owner_id: string; // The creator
+  is_public: boolean;
+  game_count: number;
+  created_at?: any; // Timestamp
+  updated_at?: any; // Timestamp
+}
+
+export interface CloudGame {
+  id: string;
+  title: string;
+  owner_id: string; // User ID
+  owner_name?: string; // Cache
+  is_public: boolean;
+  library_id?: string; // Null if uncategorized
+  root_node: string;   // JSON/LZString of game tree
+  created_at?: any;
+  updated_at?: any;
+  metadata?: {
+    red: string;
+    black: string;
+    result: string;
+    date: string;
+  }
+}

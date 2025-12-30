@@ -138,10 +138,13 @@ export class LocalEngine {
                 try {
                     // Wait for Pikafish to be ready (it's a factory function)
                     // @ts-ignore
-                    if (typeof Pikafish === 'function') {
+                    // @ts-ignore
+                    const engineFactory = typeof Pikafish === 'function' ? Pikafish : (typeof FairyStockfish === 'function' ? FairyStockfish : null);
+
+                    if (engineFactory) {
                         // Pass config to factory function - this is where locateFile must be set
                         // @ts-ignore
-                        this.stockfish = await Pikafish({
+                        this.stockfish = await engineFactory({
                             locateFile: (path: string) => {
                                 console.log('Pikafish locateFile:', path);
                                 return this.engineBasePath + path + '?v=' + TIMESTAMP;
