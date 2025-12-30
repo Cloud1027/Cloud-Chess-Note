@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { X, User, LogOut, Cloud, Globe, Lock, Unlock, Trash2, Download, Save, ExternalLink, Share2, ChevronDown, ChevronUp, Folder, Book, Plus, ArrowLeft, Check } from 'lucide-react';
+import { X, User, LogOut, Cloud, Globe, Lock, Unlock, Trash2, Download, Save, ExternalLink, Share2, ChevronDown, ChevronUp, Folder, Book, Plus, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import {
     saveGameToCloud, getUserGames, getPublicGames, updateCloudGame,
@@ -574,7 +573,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                         <button
                                             onClick={handleSaveGame}
                                             disabled={isSaving}
-                                            className={`px - 4 py - 2 text - white text - sm font - bold rounded - lg flex items - center gap - 2 shadow - lg disabled: opacity - 50 disabled: cursor - not - allowed ${activeTab === 'public' || isSavePublic ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/20' : 'bg-green-600 hover:bg-green-500 shadow-green-900/20'} `}
+                                            className={`px-4 py-2 text-white text-sm font-bold rounded-lg flex items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${activeTab === 'public' || isSavePublic ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/20' : 'bg-green-600 hover:bg-green-500 shadow-green-900/20'} `}
                                         >
                                             {isSaving ? "處理中..." : (
                                                 <>
@@ -692,7 +691,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                     <div className="flex items-center gap-1">
                                                         <button
                                                             onClick={(e) => handleToggleLibraryPublic(e, lib)}
-                                                            className={`p - 1.5 rounded - lg transition - colors ${lib.is_public ? 'text-blue-500 hover:bg-blue-900/30' : 'text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800'} `}
+                                                            className={`p-1.5 rounded-lg transition-colors ${lib.is_public ? 'text-blue-500 hover:bg-blue-900/30' : 'text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800'} `}
                                                             title={lib.is_public ? "已公開 (點擊改為私人)" : "私人 (點擊改為公開)"}
                                                         >
                                                             {lib.is_public ? <Globe size={16} /> : <Lock size={16} />}
@@ -771,13 +770,13 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                                 {isOwner ? (
                                                                     <button
                                                                         onClick={(e) => { e.stopPropagation(); handleTogglePublic(game.id, game.is_public); }}
-                                                                        className={`p - 1.5 rounded - lg shrink - 0 cursor - pointer transition - colors ${game.is_public ? 'bg-blue-900/20 text-blue-500 hover:bg-blue-900/40' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'} `}
+                                                                        className={`p-1.5 rounded-lg shrink-0 cursor-pointer transition-colors ${game.is_public ? 'bg-blue-900/20 text-blue-500 hover:bg-blue-900/40' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'} `}
                                                                         title={game.is_public ? "已公開 (點擊改為私人)" : "僅限私人 (點擊改為公開)"}
                                                                     >
                                                                         {game.is_public ? <Globe size={16} /> : <Lock size={16} />}
                                                                     </button>
                                                                 ) : (
-                                                                    <div className={`p - 1.5 rounded - lg shrink - 0 ${game.is_public ? 'bg-blue-900/20 text-blue-500' : 'bg-zinc-800 text-zinc-500'} `} title={game.is_public ? "公開狀態" : "私人狀態"}>
+                                                                    <div className={`p-1.5 rounded-lg shrink-0 ${game.is_public ? 'bg-blue-900/20 text-blue-500' : 'bg-zinc-800 text-zinc-500'} `} title={game.is_public ? "公開狀態" : "私人狀態"}>
                                                                         {game.is_public ? <Globe size={16} /> : <Lock size={16} />}
                                                                     </div>
                                                                 )}
@@ -798,7 +797,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                         <div className="flex items-center justify-end gap-2 mt-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                             <button
                                                                 onClick={() => {
-                                                                    const url = `${window.location.origin} /s/${game.id} `;
+                                                                    const url = `${window.location.origin}/s/${game.id}`;
                                                                     navigator.clipboard.writeText(url).then(() => alert("連結已複製到剪貼簿！"));
                                                                 }}
                                                                 className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 rounded-lg flex items-center gap-1 transition-colors"
@@ -822,7 +821,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                                     <div className="w-px h-4 bg-zinc-800 mx-1"></div>
                                                                     <button
                                                                         onClick={() => handleTogglePublic(game.id, game.is_public)}
-                                                                        className={`p - 1.5 rounded - lg transition - colors ${game.is_public ? 'hover:bg-blue-900/30 text-blue-500' : 'hover:bg-zinc-800 text-zinc-500'} `}
+                                                                        className={`p-1.5 rounded-lg transition-colors ${game.is_public ? 'hover:bg-blue-900/30 text-blue-500' : 'hover:bg-zinc-800 text-zinc-500'} `}
                                                                         title={game.is_public ? "設為私人" : "設為公開"}
                                                                     >
                                                                         {game.is_public ? <Unlock size={16} /> : <Lock size={16} />}
@@ -878,8 +877,8 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                 />
                             </div>
                             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsNewLibPublic(!isNewLibPublic)}>
-                                <div className={`w - 5 h - 5 rounded border flex items - center justify - center transition - colors ${isNewLibPublic ? 'bg-blue-600 border-blue-600' : 'border-zinc-600 bg-zinc-950/50'} `}>
-                                    {isNewLibPublic && <Check size={14} className="text-white" />}
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isNewLibPublic ? 'bg-blue-600 border-blue-600' : 'border-zinc-600 bg-zinc-950/50'} `}>
+                                    {isNewLibPublic && <span className="text-white text-xs font-bold">✓</span>}
                                 </div>
                                 <span className="text-sm text-zinc-300 select-none">
                                     設為公開 (所有人可以在「公共棋庫」看到)
