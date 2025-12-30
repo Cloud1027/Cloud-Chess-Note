@@ -1,7 +1,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { MoveNode, AnalysisResult } from '../types';
-import { fetchCloudBookData, ucciToCoords, getChineseNotation } from '../lib/utils';
+import { fetchCloudBookData, ucciToCoords, getChineseNotation, fenToBoard } from '../lib/utils';
 import { LocalEngine } from '../lib/engine';
 
 export const useAnalysis = (
@@ -44,10 +44,14 @@ export const useAnalysis = (
         if (bestMove) {
             const bestCoords = ucciToCoords(bestMove.move);
             if (bestCoords) {
-                const piece = currentNode.boardState[bestCoords.from.r][bestCoords.from.c];
-                const target = currentNode.boardState[bestCoords.to.r][bestCoords.to.c];
+                let board = currentNode.boardState;
+                if (!board || board.length === 0 || !board[bestCoords.from.r]) {
+                    board = fenToBoard(currentNode.fen).board;
+                }
+                const piece = board[bestCoords.from.r][bestCoords.from.c];
+                const target = board[bestCoords.to.r][bestCoords.to.c];
                 if (piece) {
-                    bestMoveNotation = getChineseNotation(currentNode.boardState, { from: bestCoords.from, to: bestCoords.to, piece, captured: target });
+                    bestMoveNotation = getChineseNotation(board, { from: bestCoords.from, to: bestCoords.to, piece, captured: target });
                 } else {
                     bestMoveNotation = bestMove.move;
                 }
@@ -239,9 +243,13 @@ export const useAnalysis = (
                 let bestMoveNotation = "";
                 const bestCoords = ucciToCoords(bestMoveUcci);
                 if (bestCoords) {
-                    const piece = currentNode.boardState[bestCoords.from.r][bestCoords.from.c];
-                    const target = currentNode.boardState[bestCoords.to.r][bestCoords.to.c];
-                    if (piece) bestMoveNotation = getChineseNotation(currentNode.boardState, { from: bestCoords.from, to: bestCoords.to, piece, captured: target });
+                    let board = currentNode.boardState;
+                    if (!board || board.length === 0 || !board[bestCoords.from.r]) {
+                        board = fenToBoard(currentNode.fen).board;
+                    }
+                    const piece = board[bestCoords.from.r][bestCoords.from.c];
+                    const target = board[bestCoords.to.r][bestCoords.to.c];
+                    if (piece) bestMoveNotation = getChineseNotation(board, { from: bestCoords.from, to: bestCoords.to, piece, captured: target });
                 }
 
                 const resultItem: AnalysisResult = {
