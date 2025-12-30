@@ -142,27 +142,27 @@ export const getUncategorizedGames = async (userId: string, isPublicView: boolea
         const gamesRef = collection(db, "games");
         let q;
         if (isPublicView) {
-            // Public uncategorized? Maybe rare, but possible.
+            // Fetch recent public games (we will filter for null library_id client side to support legacy data)
+            // Using library_id == null in query excludes docs where field is missing!
             q = query(gamesRef,
                 where("is_public", "==", true),
-                where("library_id", "==", null),
                 orderBy("created_at", "desc"),
-                limit(50)
+                limit(100)
             );
         } else {
             q = query(gamesRef,
                 where("owner_id", "==", userId),
-                where("library_id", "==", null),
                 orderBy("created_at", "desc"),
-                limit(50)
+                limit(100)
             );
         }
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(convertDoc);
+        // Client-side filter: Include if library_id is null OR undefined (missing)
+        return snapshot.docs
+            .map(convertDoc)
+            .filter((g: any) => !g.library_id);
     } catch (error) {
         console.error("Error fetching uncategorized games:", error);
-        // Fallback: If index is missing for null equality, might fail.
-        // For MVP, if it fails, we might just fetch all and filter client side if needed, but let's try strict query.
         throw error;
     }
 };
