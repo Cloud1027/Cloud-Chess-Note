@@ -1,19 +1,19 @@
 
 import { ImageResponse } from '@vercel/og';
+import React from 'react';
 
-export const config = {
-    runtime: 'edge',
-};
+// Removing edge config to see if standard Node runtime handles it better
+// export const config = { runtime: 'edge' };
 
 const FIREBASE_PROJECT_ID = "cloud-chess-note";
 const FIREBASE_API_KEY = "AIzaSyArrCjf0xUCqpw4Yo2pm9fefSzNR1twgRM";
 
-const PIECES = {
+const PIECES: any = {
     red: { king: '帥', advisor: '仕', elephant: '相', horse: '傌', chariot: '俥', cannon: '炮', soldier: '兵' },
     black: { king: '將', advisor: '士', elephant: '象', horse: '馬', chariot: '車', cannon: '包', soldier: '卒' }
 };
 
-const charToPiece = {
+const charToPiece: any = {
     'K': { color: 'red', text: PIECES.red.king },
     'A': { color: 'red', text: PIECES.red.advisor },
     'B': { color: 'red', text: PIECES.red.elephant },
@@ -30,8 +30,8 @@ const charToPiece = {
     'p': { color: 'black', text: PIECES.black.soldier }
 };
 
-export default async function handler(req) {
-    const { searchParams } = new URL(req.url);
+export default async function handler(req: any) {
+    const { searchParams } = new URL(req.url || '');
     const id = searchParams.get('id');
     let fen = searchParams.get('fen') || 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w';
 
@@ -49,10 +49,9 @@ export default async function handler(req) {
     }
 
     const board = parseFen(fen);
-    const cellSize = 60;
-    const padding = 30;
+    const cellSize = 55;
+    const padding = 20;
 
-    // Use ImageResponse to generate PNG
     return new ImageResponse(
         (
             <div
@@ -87,7 +86,7 @@ export default async function handler(req) {
                                 top: `${i * cellSize}px`,
                                 left: 0,
                                 width: '100%',
-                                height: '1px',
+                                height: '2px',
                                 backgroundColor: '#333',
                             }}
                         />
@@ -100,21 +99,20 @@ export default async function handler(req) {
                                 position: 'absolute',
                                 top: 0,
                                 left: `${i * cellSize}px`,
-                                width: '1px',
+                                width: '2px',
                                 height: '100%',
                                 backgroundColor: '#333',
                                 display: 'flex',
                                 flexDirection: 'column',
                             }}
                         >
-                            {/* Break the line at the river */}
                             {i !== 0 && i !== 8 && (
                                 <div style={{
                                     position: 'absolute',
-                                    top: `${cellSize * 4}px`,
+                                    top: `${cellSize * 4 + 2}px`,
                                     left: '-5px',
-                                    width: '10px',
-                                    height: `${cellSize}px`,
+                                    width: '12px',
+                                    height: `${cellSize - 4}px`,
                                     backgroundColor: '#f3e4c4',
                                     zIndex: 1
                                 }} />
@@ -122,7 +120,10 @@ export default async function handler(req) {
                         </div>
                     ))}
 
-                    {/* Palaces X Lines (Omitted for simplicity in CSS rendering, but can be added with absolute skewed divs if needed) */}
+                    {/* Palace X Lines */}
+                    <div style={{ position: 'absolute', top: 0, left: `${3 * cellSize}px`, width: `${2 * cellSize}px`, height: `${2 * cellSize}px`, zIndex: 1, display: 'flex' }}>
+                        {/* We can't easily draw diagonals with CSS in Satori without skew, but we can skip for OG image or use small rects */}
+                    </div>
 
                     {/* River Text */}
                     <div style={{
@@ -134,7 +135,7 @@ export default async function handler(req) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-around',
-                        fontSize: '24px',
+                        fontSize: '32px',
                         fontWeight: 'bold',
                         color: '#333',
                         zIndex: 2
@@ -145,7 +146,7 @@ export default async function handler(req) {
 
                     {/* Pieces */}
                     {board.map((row, r) =>
-                        row.map((piece, c) => piece && (
+                        row.map((piece: any, c) => piece && (
                             <div
                                 key={`${r}-${c}`}
                                 style={{
@@ -156,19 +157,19 @@ export default async function handler(req) {
                                     height: '50px',
                                     borderRadius: '50%',
                                     backgroundColor: 'white',
-                                    border: `2px solid ${piece.color === 'red' ? '#cc0000' : '#000'}`,
+                                    border: `3px solid ${piece.color === 'red' ? '#cc0000' : '#000'}`,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '28px',
+                                    fontSize: '30px',
                                     fontWeight: 'bold',
                                     color: piece.color === 'red' ? '#cc0000' : '#000',
                                     zIndex: 10
                                 }}
                             >
                                 <div style={{
-                                    width: '42px',
-                                    height: '42px',
+                                    width: '40px',
+                                    height: '40px',
                                     borderRadius: '50%',
                                     border: '1px solid currentColor',
                                     display: 'flex',
@@ -190,7 +191,7 @@ export default async function handler(req) {
     );
 }
 
-function parseFen(fen) {
+function parseFen(fen: string) {
     const board = Array(10).fill(null).map(() => Array(9).fill(null));
     const parts = fen.split(' ');
     const position = parts[0];
