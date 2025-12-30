@@ -778,8 +778,7 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                             );
                                         })}
                                     </div>
-                                )}
-                            )}
+                                ))}
                         </div>
                     </div>
                 </div>
