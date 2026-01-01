@@ -783,7 +783,27 @@ const CloudLibrary: React.FC<CloudLibraryProps> = ({ isOpen, onClose, currentTab
                                                                 )}
                                                             </div>
 
-                                                            <div className="hidden md:flex flex-col gap-1 mt-2">
+                                                            {/* Player Names Preview */}
+                                                            {(() => {
+                                                                const red = game.metadata?.redName || game.redName || game.metadata?.red;
+                                                                const black = game.metadata?.blackName || game.blackName || game.metadata?.black;
+                                                                if (!red && !black) return null;
+                                                                return (
+                                                                    <div className="flex items-center gap-2 mt-1 mb-1.5 pointer-events-none">
+                                                                        <div className="flex items-center gap-1.5 text-red-500/90 font-medium bg-red-500/5 px-2 py-0.5 rounded border border-red-500/10 max-w-[45%]">
+                                                                            <User size={12} className="shrink-0" />
+                                                                            <span className="truncate text-xs">{red || "紅方"}</span>
+                                                                        </div>
+                                                                        <span className="text-zinc-600 text-[10px] font-bold shrink-0 italic">VS</span>
+                                                                        <div className="flex items-center gap-1.5 text-zinc-400 font-medium bg-zinc-800/50 px-2 py-0.5 rounded border border-zinc-700/50 max-w-[45%]">
+                                                                            <User size={12} className="shrink-0" />
+                                                                            <span className="truncate text-xs">{black || "黑方"}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+
+                                                            <div className="flex flex-col gap-1 mt-1">
                                                                 <div className="text-xs text-zinc-500 flex items-center gap-1.5">
                                                                     <User size={12} />
                                                                     <span className="truncate max-w-[12rem]">{isOwner ? "我自己" : `使用者 ${game.owner_id.slice(0, 6)}...`}</span>
